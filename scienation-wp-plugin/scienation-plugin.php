@@ -28,7 +28,8 @@ class Scienation_Plugin {
 	public function __construct() {
 		add_action( 'wp_head', array( &$this, 'wp_head' ) );		
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
-		add_action( 'save_post', array(&$this, 'post_submit_handler'));
+		add_action( 'save_post', array( &$this, 'post_submit_handler' ) );
+		add_action( 'the_content', array( &$this, 'output_post_meta' ) );
 	}
 	
 	public function wp_head () {
@@ -39,6 +40,7 @@ class Scienation_Plugin {
 			echo '	"@context": "http://schema.org",' . PHP_EOL;
 			echo '	"@type": "ScholarlyArticle",' . PHP_EOL;
 			echo '	"content": ' . json_encode($post->post_content) . ',' . PHP_EOL;
+			echo '	"abstract": ' . json_encode(get_post_meta($post->ID, PREFIX . 'abstract', true)) . ',' . PHP_EOL;
 			echo '	"url": ' . json_encode(get_permalink()) . ',' . PHP_EOL;
 			echo '}' . PHP_EOL;
 			echo '</script>' . PHP_EOL;
@@ -70,7 +72,11 @@ class Scienation_Plugin {
 		$enabled = !exists || get_post_meta($post_ID, PREFIX . 'enabled', true);
 		$checked = $enabled ? ' checked' : '';
 		echo '<input type="checkbox"' . $checked . ' name="'. PREFIX . 'enabled' . '" id="' . PREFIX . 'enabled' . '" /><label for="' 
-			. PREFIX . 'enabled' . '">This is a scientific publication</label>';
+			. PREFIX . 'enabled' . '">This is a scientific publication</label><br />';
+			
+		//TODO orcid
+		echo '<label for="' . PREFIX . 'authors">Authors (comma-separated): </label><input type="text" size="40" name="'. PREFIX . 'authors' . '" id="' 
+			. PREFIX . 'authors' . '" value="' . get_post_meta($post_ID, PREFIX . 'authors', true) . '"/>';
 	}
 	
 	public function abstract_metabox_content() {
@@ -79,15 +85,31 @@ class Scienation_Plugin {
 		wp_editor($abstract, PREFIX . "abstract", array("textarea_rows" => 5));
 	}
 	
+	public function output_post_meta($post) {
+		global $post_ID;
+		$post = get_post($post_ID);
+		$content = $post->post_content;
+		$content_meta = "";
+		if( is_single() || is_page() ) {
+			$abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
+			$authors = get_post_meta($post->ID, PREFIX . 'authors', true);
+			  
+			$content_meta .= "<strong>Authors</strong> " . $authors . "<br />";
+			$content_meta .= "<h2>Abstract</h2>" . $abstract . "<br /><br /><br />";
+		}
+		return $content_meta . $content;
+	}
 	public function post_submit_handler($post_id) {
 		if ( !current_user_can('edit_post', $post_id) ) { return $post_id; }
 		$enabled = $_POST[PREFIX . 'enabled'];
 		update_post_meta($post_id, PREFIX . 'enabled', $enabled);
 		if ($enabled) {
-			// science branches
-			// authors
+			// TODO science branches
+			update_post_meta($post_id, PREFIX . 'authors', $_POST[PREFIX . 'authors']);
 			update_post_meta($post_id, PREFIX . 'abstract', $_POST[PREFIX . 'abstract']);
 		}
 	}
+	
+	//TODO bibliographic references - store just DOI/URI (canonical)
 }
 ?>

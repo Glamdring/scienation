@@ -122,7 +122,8 @@ class Scienation_Plugin {
 		$checked = $enabled ? ' checked' : '';
 		echo '<input type="checkbox"' . $checked . ' name="'. PREFIX . 'enabled' . '" id="' . PREFIX . 'enabled' . '" /><label for="' 
 			. PREFIX . 'enabled' . '">This is a scientific publication</label><br />';
-			
+		
+        //TODO default ORCID configuration
 		$authors = get_post_meta($post_ID, PREFIX . 'authors', true);
 		echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. PREFIX . 'authors' . '" id="' 
 			. PREFIX . 'authors' . '" value="' . $authors . '"/>';
@@ -199,7 +200,9 @@ class Scienation_Plugin {
 			if (!empty($list)) {
 				echo ")";
 			}
-		}
+		} else {
+            echo 'Don\'t have an ORCID? <a href="http://orcid.org/" target="_blank">Get one in 30 seconds here.</a>';
+        }
     }
     
     private function get_author_names($response) {

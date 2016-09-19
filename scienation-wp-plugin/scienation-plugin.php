@@ -26,7 +26,8 @@ define('ORCID_API_URL', 'https://pub.orcid.org/v1.2/');
 new Scienation_Plugin();
 
 class Scienation_Plugin {
-		
+	
+    //TODO cache ocdit responses
 	private $publication_types = array("Original research", 
 		"Review/Survey", 
 		"Replication", 
@@ -128,7 +129,7 @@ class Scienation_Plugin {
 		echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. PREFIX . 'authors' . '" id="' 
 			. PREFIX . 'authors' . '" value="' . $authors . '"/>';
 		
-		$this->print_authors_names($authors);
+		$this->print_authors_names($authors, true);
         echo "<br />";
         
         echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'publicationType">Publication type: </label>';
@@ -160,7 +161,7 @@ class Scienation_Plugin {
             $abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
             $authors = get_post_meta($post->ID, PREFIX . 'authors', true);
               
-            $content_meta .= "<strong>Authors</strong> " . $authors . "<br />";
+            $content_meta .= "<strong>Authors</strong> " . $this->print_authors_names($authors, false) . "<br />";
             $content_meta .= "<h2>Abstract</h2>" . $abstract . "<br /><br /><br />";
         }
         return $content_meta . $content;
@@ -181,11 +182,11 @@ class Scienation_Plugin {
     private function update_meta($post_id, $key) {
         update_post_meta($post_id, PREFIX . $key, $_POST[PREFIX . $key]);
     }
-    private function print_authors_names($authors) {
+    private function print_authors_names($authors, $parentheses) {
         if ($authors) {
 			$list = explode(",", $authors);
 
-			if (!empty($list)) {
+			if ($parentheses && !empty($list)) {
 				echo " (";
 			}
 			$context = stream_context_create($this->orcid_opts);
@@ -193,11 +194,11 @@ class Scienation_Plugin {
 			foreach ($list as $authorORCID) {
 				$response = file_get_contents(ORCID_API_URL . $authorORCID, false, $context);
 				if ($response) {
-					echo $delimiter . $this->get_author_names($response);
+					echo $delimiter . '<a href="http://orcid.org/' . $authorORCID . '" target="_blank">' . $this->get_author_names($response) . '</a>';
 					$delimiter = ", ";
 				}
 			}
-			if (!empty($list)) {
+			if ($parentheses && !empty($list)) {
 				echo ")";
 			}
 		} else {

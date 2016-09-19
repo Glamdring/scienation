@@ -22,9 +22,22 @@ add_shortcode('abstract', 'abstract_shortcode');
 
 new Scienation_Plugin();
 
-const PREFIX = "sc_";
-
 class Scienation_Plugin {
+	const PREFIX = "sc_";
+	PUBLICATION_TYPES = array("Original research", 
+		"Review/Survey", 
+		"Replication", 
+		"Meta-analysis", 
+		"Essay/Commentary/Opinion", 
+		"Research pre-registration",
+		"Report",		
+		"Research notes",
+		"Letter/communication",
+		"Lecture",
+		"Poster",
+		"Dissertation/thesis",
+		"Monopgraph")
+	
 	public function __construct() {
 		add_action( 'wp_head', array( &$this, 'wp_head' ) );		
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
@@ -105,6 +118,8 @@ class Scienation_Plugin {
 		update_post_meta($post_id, PREFIX . 'enabled', $enabled);
 		if ($enabled) {
 			// TODO science branches
+			// TODO publication type
+			// TODO figures, data (Figshare) and code (Github)
 			update_post_meta($post_id, PREFIX . 'authors', $_POST[PREFIX . 'authors']);
 			update_post_meta($post_id, PREFIX . 'abstract', $_POST[PREFIX . 'abstract']);
 		}

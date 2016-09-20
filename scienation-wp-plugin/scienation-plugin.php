@@ -55,8 +55,20 @@ class Scienation_Plugin {
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
 		add_action( 'save_post', array( &$this, 'post_submit_handler' ) );
 		add_action( 'the_content', array( &$this, 'output_post_meta' ) );
+        if (true || $this->is_edit_page()) {
+            add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
+        }
 	}
 	
+    public function add_static_resources() {
+        wp_enqueue_style( PREFIX . 'tree_style', plugins_url('jquery.tree.min.css', __FILE__));
+        wp_enqueue_style( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.10.1/themes/base/jquery-ui.css');
+        
+        wp_enqueue_script( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.10.2/jquery-ui.js');
+        wp_enqueue_script( PREFIX . 'tree_script', plugins_url('jquery.tree.min.js', __FILE__));
+            //array("jquery-ui-core", "jquery-ui-widget", "jquery-ui-draggable", "jquery-ui-droppable", "jquery-effects-core"));
+    }
+    
 	public function wp_head () {
 		if (is_single()) {
 			$post = get_post(get_the_ID());
@@ -98,6 +110,14 @@ class Scienation_Plugin {
 	}
 
 	public function metaboxes() {
+        add_meta_box(
+			PREFIX . 'abstract_metabox',
+			__( 'Publication abstract', 'abstract' ),
+			array(&$this, 'abstract_metabox_content'),
+			'post',
+			'advanced',
+			'high');
+            
 		add_meta_box(
 			PREFIX . 'metabox',
 			__( 'Scienation details', 'scienation' ),
@@ -105,15 +125,6 @@ class Scienation_Plugin {
 			'post',
 			'advanced',
 			'high');
-			
-		add_meta_box(
-			PREFIX . 'abstract_metabox',
-			__( 'Publication abstract', 'abstract' ),
-			array(&$this, 'abstract_metabox_content'),
-			'post',
-			'advanced',
-			'high');
-			
 	}
 	
 	public function metabox_content() {
@@ -144,6 +155,9 @@ class Scienation_Plugin {
             echo '<option value="' . $val . '"' . $selected . '>' . $type . '</option>';
         }
         echo '</select>';
+        echo '<br />';
+        
+        $this->print_branches_html();
 	}
 	
 	public function abstract_metabox_content() {
@@ -213,6 +227,150 @@ class Scienation_Plugin {
         $family_name = $personal_details["family-name"]["value"];
         
         return $given_name . " " . $family_name;
+    }
+    
+    private function print_branches_html() {
+        ?>
+<script type="text/javascript">
+       var branchListFullyVisible = true; 
+       
+       jQuery(document).ready(function() {
+    	   // delaying the loading with a second so that it doesn't interfere with the visual page loading
+    	   setTimeout(function() {
+	           jQuery.get("<?php echo plugins_url('branches.json', __FILE__); ?>", function(branches) {
+                   var container = jQuery("#branches");
+                   var elements = [];
+                   appendBranch(elements, branches);
+                   container.append(elements.join(""));
+                   container.tree({
+                       onCheck: { 
+                           ancestors: 'nothing', 
+                           descendants: 'nothing' 
+                       }, 
+                       onUncheck: { 
+                           ancestors: 'nothing' 
+                       }
+                   });
+                   
+                   jQuery("#branchSearchBox").keyup(function() {
+                       delay(function() {
+                           jQuery("#branches li").removeClass("found show collapseChildren");
+                           var text = jQuery("#branchSearchBox").val().toLowerCase();
+        
+                           // only start filtering after the 2nd character
+                           if (text.length < 3) {
+                               text = "";
+                           }
+                           // avoid duplicate traversals if the list is already visible
+                           if (!text && branchListFullyVisible) {
+                               return;
+                           }
+                           var ops = 0;
+                           jQuery(".branchName").each(function() {
+                               var branch = jQuery(this);
+                               if (branch.text().toLowerCase().indexOf(text) <= -1) {
+                                   branch.parent().hide(); // hide the li
+                               } else {
+                                   var currentLi = branch.parent();
+                                   currentLi.addClass("found");
+                                   if (!currentLi.hasClass("leaf")) {
+                                       // collapse all children, so that they are accessible
+                                       currentLi.addClass("collapseChildren");
+                                       currentLi.find("li").each(function() {
+                                           jQuery(this).addClass("show");
+                                       });
+                                   }
+                                   // (if the input is empty, all nodes will be shown anyway)
+                                   if (text) {
+                                       // also show all parents of the li to the top
+                                       while (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
+                                           currentLi = currentLi.parent().parent();
+                                           if (!currentLi.hasClass("found")) {
+                                               currentLi.addClass("found");
+                                               currentLi.removeClass("collapseChildren");
+                                           } else {
+                                               break;
+                                           }
+                                       }
+                                   }
+                               }
+                           });
+                           
+                           // now expand all visible ones
+                           jQuery("#branches .show").each(function() {
+                               jQuery(this).show();
+                           });
+                           jQuery("#branches .found").each(function() {
+                               var currentLi = jQuery(this);
+                               currentLi.show();
+                               if (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
+                                   container.tree("expand", currentLi.parent().parent());
+                               }
+                               if (currentLi.hasClass("collapseChildren")) {
+                                   container.tree("collapse", currentLi);
+                               }
+                           });
+                           if (!text) {
+                               branchListFullyVisible = true;
+                           } else {
+                               branchListFullyVisible = false;
+                           }
+	               }, 700);
+	           });
+             });
+    	   }, 1000);
+	   });
+
+       function appendBranch(container, branches) {
+           container.push("<ul>");
+           for (var i = 0; i < branches.length; i ++) {
+               var branch = branches[i]; 
+               var cssClass ="collapsed";
+               if (branch.children.length == 0) {
+                   cssClass = "leaf";
+               }
+               container.push('<li class="' + cssClass + '" id="scienceBranchLi' + branch.id +'"><input type="checkbox" name="scienceBranch" id="scienceBranch' + branch.id + 
+                   '" value="' + branch.id + '" /><label for="scienceBranch' + branch.id + '" class="branchName">' + branch.name + '</label>');
+
+               if (branches.length > 0) {
+                   appendBranch(container, branch.children);
+               }
+               container.push("</li>");
+               
+           }
+           container.push("</ul>");
+       }
+       
+       var delay = (function(){
+         var timer = 0;
+         return function(callback, ms){
+           clearTimeout (timer);
+           timer = setTimeout(callback, ms);
+         };
+       })();
+   </script>
+</head>
+<input type="text" class="form-control input-lg" id="branchSearchBox" placeholder="Search..." />
+<div id="branches" style="height: 310px; overflow: auto;">
+</div>        
+        <?php
+    }
+    
+    private function is_edit_page($new_edit = null){
+        global $pagenow;
+        //make sure we are on the backend
+        if (!is_admin()) {
+            return false;
+        }
+
+
+        if($new_edit == "edit") {
+            return in_array( $pagenow, array( 'post.php',  ) );
+        } elseif($new_edit == "new") { //check for new post page
+            return in_array( $pagenow, array( 'post-new.php' ) );
+        }  else { //check for either new or edit
+            return in_array( $pagenow, array( 'post.php', 'post-new.php' ) );
+        }
     }
     //TODO bibliographic references - store just DOI/URI (canonical)
 }

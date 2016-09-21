@@ -61,10 +61,10 @@ class Scienation_Plugin {
 	}
 	
     public function add_static_resources() {
+		wp_enqueue_style( PREFIX . 'jquery-ui-style', 'http://code.jquery.com/ui/1.10.1/themes/base/jquery-ui.css');
         wp_enqueue_style( PREFIX . 'tree_style', plugins_url('jquery.tree.min.css', __FILE__));
-        wp_enqueue_style( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.10.1/themes/base/jquery-ui.css');
         
-        wp_enqueue_script( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.10.2/jquery-ui.js');
+        wp_enqueue_script( PREFIX . 'jquery-ui-script', 'http://code.jquery.com/ui/1.10.2/jquery-ui.js');
         wp_enqueue_script( PREFIX . 'tree_script', plugins_url('jquery.tree.min.js', __FILE__));
             //array("jquery-ui-core", "jquery-ui-widget", "jquery-ui-draggable", "jquery-ui-droppable", "jquery-effects-core"));
     }
@@ -157,7 +157,7 @@ class Scienation_Plugin {
         echo '</select>';
         echo '<br />';
         
-        $this->print_branches_html();
+        $this->print_branches_html(get_post_meta($post_ID, PREFIX . 'scienceBranch'));
 	}
 	
 	public function abstract_metabox_content() {
@@ -190,6 +190,13 @@ class Scienation_Plugin {
             $this->update_meta($post_id, 'authors');
             $this->update_meta($post_id, 'abstract');
             $this->update_meta($post_id, 'publicationType');
+			
+			// cleanup the multi-value meta first
+			delete_post_meta($post_id, PREFIX . "scienceBranch");
+			// then add all submitted values
+			foreach ($_POST['scienceBranch'] as $branch) {
+				add_post_meta($post_id, PREFIX . "scienceBranch", $branch);
+			}
         }
     }
     
@@ -229,11 +236,18 @@ class Scienation_Plugin {
         return $given_name . " " . $family_name;
     }
     
-    private function print_branches_html() {
+    private function print_branches_html($selected) {
+		$selectedJSArray = '';
+		$delimiter = '';
+		foreach ($selected as $branch) {
+			$selectedJSArray .= $delimiter . '"' . $branch . '"';
+			$delimiter = ',';
+		}
         ?>
 <script type="text/javascript">
        var branchListFullyVisible = true; 
-       
+       var selected = [<?php echo $selectedJSArray; ?>];
+	   
        jQuery(document).ready(function() {
     	   // delaying the loading with a second so that it doesn't interfere with the visual page loading
     	   setTimeout(function() {
@@ -249,88 +263,121 @@ class Scienation_Plugin {
                        }, 
                        onUncheck: { 
                            ancestors: 'nothing' 
-                       }
+                       },
+					   dnd: false,
+					   selectable: false,
+					   collapseEffect: null,
+					   checkbox: false
                    });
                    
+				   // if there are any selected items, show them
+				   if (selected.length > 0) {
+					   jQuery(".branchName").each(function() {
+						   var branch = jQuery(this);
+						   // also show all parents of the li to the top
+						   var currentLi = branch.parent();
+						   // the "found" ones here are the pre-selected ones
+						   if (currentLi.hasClass("found")) {
+							   while (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
+								   currentLi = currentLi.parent().parent();
+								   if (!currentLi.hasClass("found")) {
+									   currentLi.addClass("found");
+									   currentLi.removeClass("collapseChildren");
+								   } else {
+									   break;
+								   }
+							   } 
+						   }
+					   });
+					   showElements(container);
+				   }
+				   
                    jQuery("#branchSearchBox").keyup(function() {
                        delay(function() {
                            jQuery("#branches li").removeClass("found show collapseChildren");
-                           var text = jQuery("#branchSearchBox").val().toLowerCase();
+						   var text = jQuery("#branchSearchBox").val().toLowerCase();
         
-                           // only start filtering after the 2nd character
-                           if (text.length < 3) {
-                               text = "";
-                           }
-                           // avoid duplicate traversals if the list is already visible
-                           if (!text && branchListFullyVisible) {
-                               return;
-                           }
-                           var ops = 0;
-                           jQuery(".branchName").each(function() {
-                               var branch = jQuery(this);
-                               if (branch.text().toLowerCase().indexOf(text) <= -1) {
-                                   branch.parent().hide(); // hide the li
-                               } else {
-                                   var currentLi = branch.parent();
-                                   currentLi.addClass("found");
-                                   if (!currentLi.hasClass("leaf")) {
-                                       // collapse all children, so that they are accessible
-                                       currentLi.addClass("collapseChildren");
-                                       currentLi.find("li").each(function() {
-                                           jQuery(this).addClass("show");
-                                       });
-                                   }
-                                   // (if the input is empty, all nodes will be shown anyway)
-                                   if (text) {
-                                       // also show all parents of the li to the top
-                                       while (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
-                                           currentLi = currentLi.parent().parent();
-                                           if (!currentLi.hasClass("found")) {
-                                               currentLi.addClass("found");
-                                               currentLi.removeClass("collapseChildren");
-                                           } else {
-                                               break;
-                                           }
-                                       }
-                                   }
-                               }
-                           });
-                           
-                           // now expand all visible ones
-                           jQuery("#branches .show").each(function() {
-                               jQuery(this).show();
-                           });
-                           jQuery("#branches .found").each(function() {
-                               var currentLi = jQuery(this);
-                               currentLi.show();
-                               if (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
-                                   container.tree("expand", currentLi.parent().parent());
-                               }
-                               if (currentLi.hasClass("collapseChildren")) {
-                                   container.tree("collapse", currentLi);
-                               }
-                           });
-                           if (!text) {
-                               branchListFullyVisible = true;
-                           } else {
-                               branchListFullyVisible = false;
-                           }
-	               }, 700);
+						   // only start filtering after the 2nd character
+						   if (text.length < 3) {
+							   text = "";
+						   }
+						   // avoid duplicate traversals if the list is already visible
+						   if (!text && branchListFullyVisible) {
+							   return;
+						   }
+						   jQuery(".branchName").each(function() {
+							   var branch = jQuery(this);
+							   if (branch.text().toLowerCase().indexOf(text) <= -1) {
+								   branch.parent().hide(); // hide the li
+							   } else {
+								   var currentLi = branch.parent();
+								   currentLi.addClass("found");
+								   if (!currentLi.hasClass("leaf")) {
+									   // collapse all children, so that they are accessible
+									   currentLi.addClass("collapseChildren");
+									   currentLi.find("li").each(function() {
+										   jQuery(this).addClass("show");
+									   });
+								   }
+								   // (if the input is empty, all nodes will be shown anyway)
+								   if (text) {
+									   // also show all parents of the li to the top
+									   while (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
+										   currentLi = currentLi.parent().parent();
+										   if (!currentLi.hasClass("found")) {
+											   currentLi.addClass("found");
+											   currentLi.removeClass("collapseChildren");
+										   } else {
+											   break;
+										   }
+									   }
+								   }
+							   }
+						   });
+                           showElements(container);
+						   if (!text) {
+							   branchListFullyVisible = true;
+						   } else {
+							   branchListFullyVisible = false;
+						   }
+	               }, 500);
 	           });
              });
     	   }, 1000);
 	   });
-
+	   
+	   function showElements(container) {
+		   // now expand all visible ones
+		   jQuery("#branches .show").each(function() {
+			   jQuery(this).show();
+		   });
+		   jQuery("#branches .found").each(function() {
+			   var currentLi = jQuery(this);
+			   currentLi.show();
+			   if (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {
+				   container.tree("expand", currentLi.parent().parent());
+			   }
+			   if (currentLi.hasClass("collapseChildren")) {
+				   container.tree("collapse", currentLi);
+			   }
+		   });
+	   }
+	   
        function appendBranch(container, branches) {
            container.push("<ul>");
            for (var i = 0; i < branches.length; i ++) {
                var branch = branches[i]; 
-               var cssClass ="collapsed";
+               var cssClass = "collapsed";
                if (branch.children.length == 0) {
                    cssClass = "leaf";
                }
-               container.push('<li class="' + cssClass + '" id="scienceBranchLi' + branch.id +'"><input type="checkbox" name="scienceBranch" id="scienceBranch' + branch.id + 
-                   '" value="' + branch.id + '" /><label for="scienceBranch' + branch.id + '" class="branchName">' + branch.name + '</label>');
+			   checked = "";
+			   if (selected.indexOf(branch.name) != -1) {
+					checked = ' checked="true"';
+					cssClass = 'found';
+			   }
+               container.push('<li class="' + cssClass + '" id="scienceBranchLi' + branch.id +'"><input type="checkbox" name="scienceBranch[]" id="scienceBranch' + branch.id + 
+                   '" value="' + branch.name + '"' + checked + '/><label for="scienceBranch' + branch.id + '" class="branchName">' + branch.name + '</label>');
 
                if (branches.length > 0) {
                    appendBranch(container, branch.children);
@@ -350,7 +397,7 @@ class Scienation_Plugin {
        })();
    </script>
 </head>
-<input type="text" class="form-control input-lg" id="branchSearchBox" placeholder="Search..." />
+<input type="text" style="width: 433px;" id="branchSearchBox" placeholder="Select a branch of science..." />
 <div id="branches" style="height: 310px; overflow: auto;">
 </div>        
         <?php

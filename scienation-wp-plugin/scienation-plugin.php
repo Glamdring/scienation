@@ -24,6 +24,7 @@ add_shortcode('abstract', 'abstract_shortcode');
 
 define('PREFIX', 'sc_');
 define('ORCID_API_URL', 'https://pub.orcid.org/v1.2/');
+define('ORCID_MESSAGE', 'Don\'t have an ORCID? <a href="http://orcid.org/" target="_blank">Get one in 30 seconds here.</a>');
 
 new Scienation_Plugin();
 
@@ -57,6 +58,8 @@ class Scienation_Plugin {
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
 		add_action( 'save_post', array( &$this, 'post_submit_handler' ) );
 		add_action( 'the_content', array( &$this, 'print_post_meta' ) );
+		add_action( 'comment_form', array (&$this, 'extend_comment_form') );
+		add_action( 'wp_insert_comment', array (&$this, 'comment_submit_handler') );
         if (true || $this->is_edit_page()) {
             add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
 			add_action( 'admin_init', array(&$this, 'button_init'));
@@ -71,6 +74,9 @@ class Scienation_Plugin {
         wp_enqueue_script( PREFIX . 'tree_script', plugins_url('jquery.tree.min.js', __FILE__));
     }
     
+	// JSON-LD output
+	// ================================================
+	
 	public function wp_head () {
 		if (is_single()) {
 			$post = get_post(get_the_ID());
@@ -83,17 +89,18 @@ class Scienation_Plugin {
 	"author": [
 			<?php
 			$list = explode(",", get_post_meta($post->ID, PREFIX . 'authors', true));
-			
+			$separator = "";
 			$context = stream_context_create($this->orcid_opts);
 			foreach ($list as $authorORCID) {
+				echo $separator;
+				$separator = ",";
 				$response = file_get_contents(ORCID_API_URL . $authorORCID, false, $context);
 				if ($response) {
 					$names = $this->get_author_names($response);
-			?>
-		{
+			?>{
 			"@id": "http://orcid.org/<?php echo $authorORCID; ?>",
 			"@type": "Person",
-			"name": <?php echo json_encode($names); ?>,
+			"name": <?php echo json_encode($names); ?>
 		}
 					<?php
 				}
@@ -103,9 +110,11 @@ class Scienation_Plugin {
 	"citation": [
 			<?php
 			$list = get_post_meta($post->ID, PREFIX . 'reference');
+			$separator = "";
 			foreach ($list as $reference) {
-			?>
-			{
+				echo $separator;
+				$separator = ",";
+			?>{
 				"@type": "ScholarlyArticle",
 				"@id": "<?php echo $reference; ?>",
 				"url": "<?php echo $reference; ?>"
@@ -114,17 +123,59 @@ class Scienation_Plugin {
 			}
 			?>
 	],
+	"review": [
+		<?php
+		$list = get_comments('post_id=' . $post->ID);
+		$separator = "";
+		foreach ($list as $comment) {
+		echo $separator;
+		$separator = ",";
+		$context = stream_context_create($this->orcid_opts);
+		$orcid = get_comment_meta($comment->comment_ID, "reviewer_orcid", true);
+		if ($orcid) {
+			$response = file_get_contents(ORCID_API_URL . $orcid, false, $context);
+			if ($response) {
+				$names = $this->get_author_names($response);
+		?>{
+			"@type": "Review",
+			"@id": "<?php echo get_permalink() . '#comment-' . $comment->comment_ID; ?>",
+			"url": "<?php echo get_permalink() . '#comment-' . $comment->comment_ID; ?>",
+			"author": {
+				"@id": "http://orcid.org/<?php echo $authorORCID; ?>",
+				"@type": "Person",
+				"name": <?php echo json_encode($names); ?>
+			},
+			"reviewBody": <?php echo json_encode($comment->comment_content); ?>,
+			"parameters": {
+				"meetsScientificStandards": <?php echo get_comment_meta($comment->comment_ID, "meets_scientific_standards", true); ?>,
+				"clarityOfBackground": <?php echo get_comment_meta($comment->comment_ID, "clarity_of_background", true); ?>,
+				"significance": <?php echo get_comment_meta($comment->comment_ID, "significance", true); ?>,
+				"studyAndDesignMethods": <?php echo get_comment_meta($comment->comment_ID, "study_design_and_methods", true); ?>,
+				"noveltyOfConclusions": <?php echo get_comment_meta($comment->comment_ID, "novelty_of_conclusions", true); ?>,
+				"qualityOfPresentation": <?php echo get_comment_meta($comment->comment_ID, "quality_of_presentation", true); ?>,
+				"qualityOfDataAnalysis": <?php echo get_comment_meta($comment->comment_ID, "quality_of_data_analysis", true); ?>
+			}
+		}
+		<?php
+				} // end of response check
+			} // end of orcid check
+		} // end of loop
+		?>
+	],
     "name": <?php echo json_encode($post->post_title); ?>,
 	"about": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'abstract', true)); ?>,
     "description": <?php echo json_encode($post->post_content); ?>,
     "genre": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'publicationType', true)); ?>,
-	"url": "<?php echo get_permalink(); ?>",
+	"url": "<?php echo get_permalink(); ?>"
 }
 </script>
 			<?php
 		}
 	}
 
+	// Metaboxes on edit page
+	// ================================================
+	
 	public function metaboxes() {
         add_meta_box(
 			PREFIX . 'abstract_metabox',
@@ -182,12 +233,16 @@ class Scienation_Plugin {
 		wp_editor($abstract, PREFIX . "abstract", array("textarea_rows" => 5));
 	}
     
+	// Post page output
+	// ================================================
+	
     public function print_post_meta($post) {
         global $post_ID;
         $post = get_post($post_ID);
         $content = $post->post_content;
         $content_meta = "";
-        if( (is_single() || is_page()) && get_post_meta($post_ID, PREFIX . 'enabled', true) == true) {
+		$enabled = get_post_meta($post->ID, PREFIX . 'enabled', true);
+        if( (is_single() || is_page()) && $enabled) {
             $abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
             $authors = get_post_meta($post->ID, PREFIX . 'authors', true);
               
@@ -196,6 +251,96 @@ class Scienation_Plugin {
         }
         return $content_meta . $content;
     }
+	
+	// Comment form with peer review controls
+	// ================================================
+	
+    public function extend_comment_form($post_id) {
+		$post = get_post($post_id);
+		if (!get_post_meta($post_id, PREFIX . 'enabled', true)) {
+			// only show peer review controls to scientific-enabled articles
+			return;
+		}
+		?>
+		<script type="text/javascript">
+			function update_output(target, value) {
+				var id = jQuery(target).attr("id");
+				jQuery("#" + id + "_output").val(value);
+			}
+		</script>
+		<input type="checkbox" name="peer_review_enabled" id="peer_review_enabled" checked onchange="jQuery('#peer_review_comment').toggle();" style="width: 25px;" />
+		<label for="peer_review_enabled">This comment is a peer review</label>
+		<div id="peer_review_comment">
+			<br />
+			<label for="reviewer_orcid" style="width: 230px; display: inline-block;">Your ORCID</label>
+			<input type="text" name="reviewer_orcid" id="reviewer_orcid" />
+			<br /><?php echo ORCID_MESSAGE; ?>
+			
+			<br />
+			<br />
+			<input type="checkbox" name="meets_scientific_standards" id="meets_scientific_standards" style="width: 25px;" value="true" />
+			<label for="meets_scientific_standards" style="width: 230px; display: inline-block;">Meets basic scientific standards</label>
+			
+			<br />
+			<label for="clarity_of_background" style="width: 230px; display: inline-block;">Clarity of background</label>
+			<input type="range" id="clarity_of_background" name="clarity_of_background" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+			<output for="clarity_of_background" id="clarity_of_background_output">1</output>
+			
+			<br />
+			<label for="significance" style="width: 230px; display: inline-block;">Significance</label>
+			<input type="range" id="significance" name="significance" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" oninput="update_output(this, value);" />
+			<output for="significance" id="significance_output">1</output>
+			
+			<br />
+			<label for="study_design_and_methods" style="width: 230px; display: inline-block;">Study design and methods</label>
+			<input type="range" id="study_design_and_methods" name="study_design_and_methods" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+			<output for="study_design_and_methods" id="study_design_and_methods_output">1</output>
+			
+			<br />
+			<label for="novelty_of_conclusions" style="width: 230px; display: inline-block;">Novelty of conclusions</label>
+			<input type="range" id="novelty_of_conclusions" name="novelty_of_conclusions" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+			<output for="novelty_of_conclusions" id="novelty_of_conclusions_output">1</output>
+			
+			<br />
+			<label for="quality_of_presentation" style="width: 230px; display: inline-block;">Quality of presentation</label>
+			<input type="range" id="quality_of_presentation" name="quality_of_presentation" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+			<output for="quality_of_presentation" id="quality_of_presentation_output">1</output>
+			
+			<br />
+			<label for="quality_of_data_analysis" style="width: 230px; display: inline-block;">Quality of data analysis</label>
+			<input type="range" id="quality_of_data_analysis" name="quality_of_data_analysis" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+			<output for="quality_of_data_analysis" id="quality_of_data_analysis_output">1</output>
+		</div>
+		<?php
+	}
+	
+	public function comment_submit_handler($comment_id) {
+		if ($_POST['peer_review_enabled']) {
+			$clarity_of_background = intval($_POST['clarity_of_background']);
+			$significance = intval($_POST['significance']);
+			$study_design_and_methods = intval($_POST['study_design_and_methods']);
+			$novelty_of_conclusions = intval($_POST['novelty_of_conclusions']);
+			$quality_of_presentation = intval($_POST['quality_of_presentation']);
+			$quality_of_data_analysis = intval($_POST['quality_of_data_analysis']);
+			$meets_scientific_standards = $_POST['meets_scientific_standards'];
+			$reviewer_orcid = $_POST['reviewer_orcid'];
+			
+			add_comment_meta($comment_id, 'clarity_of_background', $clarity_of_background, true);
+			add_comment_meta($comment_id, 'significance', $significance, true);
+			add_comment_meta($comment_id, 'study_design_and_methods', $study_design_and_methods, true);
+			add_comment_meta($comment_id, 'novelty_of_conclusions', $novelty_of_conclusions, true);
+			add_comment_meta($comment_id, 'quality_of_presentation', $quality_of_presentation, true);
+			add_comment_meta($comment_id, 'quality_of_data_analysis', $quality_of_data_analysis, true);
+			add_comment_meta($comment_id, 'reviewer_orcid', $reviewer_orcid, true);
+			if ($meets_scientific_standards) {
+				add_comment_meta($comment_id, 'meets_scientific_standards', "true", true);
+			} else {
+				add_comment_meta($comment_id, 'meets_scientific_standards', "false", true);
+			}
+		}
+	}
+	// TinyMCE reference button
+	// ================================================
 	
 	public function button_init() {
 		add_filter( 'mce_external_plugins', array( &$this, 'register_tinmymce_js' ) );
@@ -213,6 +358,8 @@ class Scienation_Plugin {
 		return $buttons;
 	}
 	
+	// Submitting functions
+	// ================================================
     public function post_submit_handler($post_id) {
         if ( !current_user_can('edit_post', $post_id) ) { return $post_id; }
         $enabled = $_POST[PREFIX . 'enabled'];
@@ -252,6 +399,10 @@ class Scienation_Plugin {
     private function update_meta($post_id, $key) {
         update_post_meta($post_id, PREFIX . $key, $_POST[PREFIX . $key]);
     }
+	
+	// Author names
+	// ================================================
+	
     private function print_authors_names($authors, $parentheses) {
         if ($authors) {
 			$list = explode(",", $authors);
@@ -272,7 +423,7 @@ class Scienation_Plugin {
 				echo ")";
 			}
 		} else {
-            echo 'Don\'t have an ORCID? <a href="http://orcid.org/" target="_blank">Get one in 30 seconds here.</a>';
+            echo ORCID_MESSAGE;
         }
     }
     
@@ -285,6 +436,9 @@ class Scienation_Plugin {
         return $given_name . " " . $family_name;
     }
     
+	// Utilities
+	// ================================================
+	
     private function is_edit_page($new_edit = null){
         global $pagenow;
         //make sure we are on the backend
@@ -301,7 +455,7 @@ class Scienation_Plugin {
             return in_array( $pagenow, array( 'post.php', 'post-new.php' ) );
         }
     }
-    //TODO bibliographic references - store just DOI/URI (canonical)
+    
 	//TODO peer review
 }
 ?>

@@ -80,7 +80,7 @@ class Scienation_Plugin {
 	"@context": "http://schema.org",
 	"@type": "ScholarlyArticle",
     "@id": "<?php echo get_permalink(); ?>",
-	"authors": [
+	"author": [
 			<?php
 			$list = explode(",", get_post_meta($post->ID, PREFIX . 'authors', true));
 			
@@ -99,6 +99,20 @@ class Scienation_Plugin {
 				}
 			}
 					?>
+	],
+	"citation": [
+			<?php
+			$list = get_post_meta($post->ID, PREFIX . 'reference');
+			foreach ($list as $reference) {
+			?>
+			{
+				"@type": "ScholarlyArticle",
+				"@id": "<?php echo $reference; ?>",
+				"url": "<?php echo $reference; ?>"
+			}
+			<?php
+			}
+			?>
 	],
     "name": <?php echo json_encode($post->post_title); ?>,
 	"about": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'abstract', true)); ?>,
@@ -204,7 +218,6 @@ class Scienation_Plugin {
         $enabled = $_POST[PREFIX . 'enabled'];
         update_post_meta($post_id, PREFIX . 'enabled', $enabled);
         if ($enabled) {
-            // TODO science branches
             // TODO figures, data (Figshare) and code (Github)
             $this->update_meta($post_id, 'authors');
             $this->update_meta($post_id, 'abstract');
@@ -218,9 +231,24 @@ class Scienation_Plugin {
 					add_post_meta($post_id, PREFIX . "scienceBranch", $branch);
 				}
 			}
+			
+			$this->store_references($post_id);
         }
     }
     
+	private function store_references($post_id) {
+		$content = str_replace("&nbsp;", "", stripslashes($_POST['content']));
+		
+		//$references = preg_match_all('/<a href="([\s\S]+)" data-reference="true"/', $content);
+		
+		$xml = simplexml_load_string("<html>" . $content . "</html>"); //appending start and end tags to make the xml parser work
+		$list = $xml->xpath("//a[@data-reference]/@href");
+		delete_post_meta($post_id, PREFIX . "reference");
+		foreach ($list as $reference) {
+			add_post_meta($post_id, PREFIX . "reference", (string) $reference);
+		}
+	}
+	
     private function update_meta($post_id, $key) {
         update_post_meta($post_id, PREFIX . $key, $_POST[PREFIX . $key]);
     }

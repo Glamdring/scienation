@@ -9,7 +9,6 @@
 					title: 'Insert reference',
 					body: [
 						{type: 'textbox', name: 'doi', label: 'DOI'},
-						{type: 'text', label: "OR"},
 						{type: 'textbox', name: 'link', label: 'Link'}
 					],
 					onsubmit: function(e) {

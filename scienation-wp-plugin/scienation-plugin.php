@@ -58,10 +58,8 @@ class Scienation_Plugin {
 		add_action( 'save_post', array( &$this, 'post_submit_handler' ) );
 		add_action( 'the_content', array( &$this, 'print_post_meta' ) );
         if (true || $this->is_edit_page()) {
-			add_filter( 'mce_buttons', array( &$this, 'register_editor_buttons' ) );
             add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
-			// Load the TinyMCE plugin : editor_plugin.js (wp2.5)
-			add_filter( 'mce_external_plugins', array( &$this, 'register_tinmymce_js' ) );
+			add_action( 'admin_init', array(&$this, 'button_init'));
         }
 	}
 	
@@ -185,14 +183,20 @@ class Scienation_Plugin {
         return $content_meta . $content;
     }
 	
-	public function register_editor_buttons($buttons) {
-		array_push( $buttons, 'insert-doi', 'myplugin' );
-		return $buttons;
+	public function button_init() {
+		add_filter( 'mce_external_plugins', array( &$this, 'register_tinmymce_js' ) );
+		add_filter( 'mce_buttons', array( &$this, 'register_editor_buttons' ) );
+		//QTags.addButton( PREFIX . "insert-reference-button", "DOI", '<a href="https://dx.doi.org/" data-reference="true"', '</a>', '', 'Insert DOI reference', priority, instance );
 	}
 	
 	public function register_tinmymce_js($plugin_array) {
-		$plugin_array['scienation'] = plugins_url( '/tinymce-doi-plugin.js', __FILE__ );
+		$plugin_array['scienation'] = plugins_url( 'tinymce3/tinymce-doi-plugin.js', __FILE__ );
 		return $plugin_array;
+	}
+	
+	public function register_editor_buttons($buttons) {
+		array_push( $buttons, 'scienation' );
+		return $buttons;
 	}
 	
     public function post_submit_handler($post_id) {

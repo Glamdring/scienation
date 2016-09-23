@@ -14,8 +14,8 @@ License URI: https://www.gnu.org/licenses/gpl-3.0.html
 if ( ! class_exists( 'WP' ) ) {
 	die();
 }
-include("includes/branches.php");
-
+include(plugin_dir_path( __FILE__ ) . "includes/branches.php");
+include( plugin_dir_path( __FILE__ ) . "includes/options.php");
 defined( 'ABSPATH' ) or die( 'Can\'t be invoked directly' );
 
 //add_option("scienation_orcid", $value, $deprecated, $autoload);
@@ -27,6 +27,7 @@ define('ORCID_API_URL', 'https://pub.orcid.org/v1.2/');
 define('ORCID_MESSAGE', 'Don\'t have an ORCID? <a href="http://orcid.org/" target="_blank">Get one in 30 seconds here.</a>');
 
 new Scienation_Plugin();
+
 
 class Scienation_Plugin {
 	
@@ -61,7 +62,7 @@ class Scienation_Plugin {
 		add_action( 'the_content', array( &$this, 'print_post_meta' ) );
 		add_action( 'comment_form', array (&$this, 'extend_comment_form') );
 		add_action( 'wp_insert_comment', array (&$this, 'comment_submit_handler') );
-        if (true || $this->is_edit_page()) {
+        if ($this->is_edit_page()) {
             add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
 			add_action( 'admin_init', array(&$this, 'button_init'));
         }
@@ -199,13 +200,19 @@ class Scienation_Plugin {
 	public function metabox_content() {
 		global $post_ID;
 		$exists = in_array($PREFIX . 'enabled', get_post_custom_keys($post_ID));
-		$enabled = !exists || get_post_meta($post_ID, PREFIX . 'enabled', true);
+		$enabled_by_default = get_option("enabled_by_default", true);
+		
+		$enabled = (!$exists && $enabled_by_default) || get_post_meta($post_ID, PREFIX . 'enabled', true);
+		
 		$checked = $enabled ? ' checked' : '';
 		echo '<input type="checkbox"' . $checked . ' name="'. PREFIX . 'enabled' . '" id="' . PREFIX . 'enabled' . '" value="true" /><label for="' 
 			. PREFIX . 'enabled' . '">This is a scientific publication</label><br />';
 		
-        //TODO default ORCID configuration
+        
 		$authors = get_post_meta($post_ID, PREFIX . 'authors', true);
+		if (empty($authors)) {
+			$authors = get_option("orcid");
+		}
 		echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. PREFIX . 'authors' . '" id="' 
 			. PREFIX . 'authors' . '" value="' . $authors . '"/>';
 		
@@ -457,7 +464,7 @@ class Scienation_Plugin {
             return in_array( $pagenow, array( 'post.php', 'post-new.php' ) );
         }
     }
-    
-	//TODO peer review
 }
+
+//TODO register at scienation
 ?>

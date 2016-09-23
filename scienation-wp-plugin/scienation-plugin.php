@@ -43,7 +43,8 @@ class Scienation_Plugin {
 		"Lecture",
 		"Poster",
 		"Dissertation/thesis",
-		"Monopgraph"
+		"Monopgraph",
+		"Other"
 	);
 	
 	private $orcid_opts = array(
@@ -166,6 +167,7 @@ class Scienation_Plugin {
 	"about": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'abstract', true)); ?>,
     "description": <?php echo json_encode($post->post_content); ?>,
     "genre": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'publicationType', true)); ?>,
+	"datePublished": "<?php echo date('c', strtotime($post->post_date)); ?>",
 	"url": "<?php echo get_permalink(); ?>"
 }
 </script>

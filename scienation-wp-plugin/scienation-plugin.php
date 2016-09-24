@@ -58,7 +58,7 @@ class Scienation_Plugin {
 	public function __construct() {
 		add_action( 'wp_head', array( &$this, 'wp_head' ) );		
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
-		add_action( 'save_post', array( &$this, 'post_submit_handler' ) );
+		add_action( 'save_post', array( &$this, 'post_submit_handler' ), 10, 2 );
 		add_action( 'the_content', array( &$this, 'print_post_meta' ) );
 		add_action( 'comment_form', array (&$this, 'extend_comment_form') );
 		add_action( 'wp_insert_comment', array (&$this, 'comment_submit_handler') );
@@ -169,7 +169,8 @@ class Scienation_Plugin {
     "description": <?php echo json_encode($post->post_content); ?>,
     "genre": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'publicationType', true)); ?>,
 	"datePublished": "<?php echo date('c', strtotime($post->post_date)); ?>",
-	"url": "<?php echo get_permalink(); ?>"
+	"url": "<?php echo get_permalink(); ?>",
+	"alternateName": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'hash', true)); ?>
 }
 </script>
 			<?php
@@ -241,6 +242,50 @@ class Scienation_Plugin {
 		$abstract = get_post_meta($post_ID, PREFIX . 'abstract', true);
 		wp_editor($abstract, PREFIX . "abstract", array("textarea_rows" => 5));
 	}
+	
+	// Submitting functions
+	// ================================================
+    public function post_submit_handler($post_id, $post) {
+        if ( !current_user_can('edit_post', $post_id) ) { return $post_id; }
+        $enabled = $_POST[PREFIX . 'enabled'];
+        update_post_meta($post_id, PREFIX . 'enabled', $enabled);
+        if ($enabled) {
+            // TODO figures, data (Figshare) and code (Github)
+            $this->update_meta($post_id, 'authors');
+            $this->update_meta($post_id, 'abstract');
+            $this->update_meta($post_id, 'publicationType');
+			
+			update_post_meta($post_id, PREFIX . 'hash', hash('sha256', strip_tags($post->post_content)));
+			
+			// cleanup the multi-value meta first
+			delete_post_meta($post_id, PREFIX . "scienceBranch");
+			// then add all submitted values
+			if ($_POST['scienceBranch']) {
+				foreach ($_POST['scienceBranch'] as $branch) {
+					add_post_meta($post_id, PREFIX . "scienceBranch", $branch);
+				}
+			}
+			
+			$this->store_references($post_id);
+        }
+    }
+    
+	private function store_references($post_id) {
+		$content = str_replace("&nbsp;", "", stripslashes($_POST['content']));
+		
+		//$references = preg_match_all('/<a href="([\s\S]+)" data-reference="true"/', $content);
+		
+		$xml = simplexml_load_string("<html>" . $content . "</html>"); //appending start and end tags to make the xml parser work
+		$list = $xml->xpath("//a[@data-reference]/@href");
+		delete_post_meta($post_id, PREFIX . "reference");
+		foreach ($list as $reference) {
+			add_post_meta($post_id, PREFIX . "reference", (string) $reference);
+		}
+	}
+	
+    private function update_meta($post_id, $key) {
+        update_post_meta($post_id, PREFIX . $key, $_POST[PREFIX . $key]);
+    }
     
 	// Post page output
 	// ================================================
@@ -366,48 +411,6 @@ class Scienation_Plugin {
 		array_push( $buttons, 'scienation' );
 		return $buttons;
 	}
-	
-	// Submitting functions
-	// ================================================
-    public function post_submit_handler($post_id) {
-        if ( !current_user_can('edit_post', $post_id) ) { return $post_id; }
-        $enabled = $_POST[PREFIX . 'enabled'];
-        update_post_meta($post_id, PREFIX . 'enabled', $enabled);
-        if ($enabled) {
-            // TODO figures, data (Figshare) and code (Github)
-            $this->update_meta($post_id, 'authors');
-            $this->update_meta($post_id, 'abstract');
-            $this->update_meta($post_id, 'publicationType');
-			
-			// cleanup the multi-value meta first
-			delete_post_meta($post_id, PREFIX . "scienceBranch");
-			// then add all submitted values
-			if ($_POST['scienceBranch']) {
-				foreach ($_POST['scienceBranch'] as $branch) {
-					add_post_meta($post_id, PREFIX . "scienceBranch", $branch);
-				}
-			}
-			
-			$this->store_references($post_id);
-        }
-    }
-    
-	private function store_references($post_id) {
-		$content = str_replace("&nbsp;", "", stripslashes($_POST['content']));
-		
-		//$references = preg_match_all('/<a href="([\s\S]+)" data-reference="true"/', $content);
-		
-		$xml = simplexml_load_string("<html>" . $content . "</html>"); //appending start and end tags to make the xml parser work
-		$list = $xml->xpath("//a[@data-reference]/@href");
-		delete_post_meta($post_id, PREFIX . "reference");
-		foreach ($list as $reference) {
-			add_post_meta($post_id, PREFIX . "reference", (string) $reference);
-		}
-	}
-	
-    private function update_meta($post_id, $key) {
-        update_post_meta($post_id, PREFIX . $key, $_POST[PREFIX . $key]);
-    }
 	
 	// Author names
 	// ================================================

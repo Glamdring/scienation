@@ -129,6 +129,16 @@ class Scienation_Plugin {
 			}
 			?>
 	],
+	"articleSection": [
+			<?php
+			$list = get_post_meta($post->ID, PREFIX . 'scienceBranch');
+			$separator = "";
+			foreach ($list as $branch) {
+				echo $separator . json_encode($branch);
+				$separator = ",";
+			}
+			?>
+	],
 	"review": [
 		<?php
 		$list = get_comments('post_id=' . $post->ID);
@@ -304,8 +314,8 @@ class Scienation_Plugin {
             $abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
             $authors = get_post_meta($post->ID, PREFIX . 'authors', true);
               
-            $content_meta .= "<strong>Authors</strong> " . $this->print_authors_names($authors, false, false) . "<br />";
-            $content_meta .= "<h2>Abstract</h2>" . $abstract . "<br /><br /><br />";
+            $content_meta .= "<strong>Authors:</strong> " . $this->print_authors_names($authors, false, false) . "<br />";
+            $content_meta .= "<h3>Abstract</h3>" . $abstract . "<br /><br /><br />";
         }
 		
 		$pdf_download = '<br /><br /><a href="index.php?scienation=generate-pdf&post_id=' . $post->ID . '">Download PDF</a>';

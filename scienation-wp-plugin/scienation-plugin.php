@@ -14,8 +14,10 @@ License URI: https://www.gnu.org/licenses/gpl-3.0.html
 if ( ! class_exists( 'WP' ) ) {
 	die();
 }
-include(plugin_dir_path( __FILE__ ) . "includes/branches.php");
-include( plugin_dir_path( __FILE__ ) . "includes/options.php");
+include_once(plugin_dir_path( __FILE__ ) . "includes/branches.php");
+include_once(plugin_dir_path( __FILE__ ) . "includes/options.php");
+include_once(plugin_dir_path( __FILE__ ) . "dompdf/autoload.inc.php");
+
 defined( 'ABSPATH' ) or die( 'Can\'t be invoked directly' );
 
 //add_option("scienation_orcid", $value, $deprecated, $autoload);
@@ -60,11 +62,13 @@ class Scienation_Plugin {
 		add_action( 'add_meta_boxes', array( &$this, 'metaboxes' ) );
 		add_action( 'save_post', array( &$this, 'post_submit_handler' ), 10, 2 );
 		add_action( 'the_content', array( &$this, 'print_post_meta' ) );
-		add_action( 'comment_form', array (&$this, 'extend_comment_form') );
-		add_action( 'wp_insert_comment', array (&$this, 'comment_submit_handler') );
+		add_action( 'comment_form', array ( &$this, 'extend_comment_form') );
+		add_action( 'wp_insert_comment', array ( &$this, 'comment_submit_handler') );
+		add_action('parse_request', array  (&$this, 'parse_request') );
+		add_filter('query_vars', array  (&$this, 'query_vars') );
         if ($this->is_edit_page()) {
             add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
-			add_action( 'admin_init', array(&$this, 'button_init'));
+			add_action( 'admin_init', array( &$this, 'button_init') );
         }
 	}
 	
@@ -217,7 +221,7 @@ class Scienation_Plugin {
 		echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. PREFIX . 'authors' . '" id="' 
 			. PREFIX . 'authors' . '" value="' . $authors . '"/>';
 		
-		$this->print_authors_names($authors, true);
+		$this->print_authors_names($authors, true, true);
         echo "<br />";
         
         echo '<label style="width: 230px; display: inline-block;" for="' . PREFIX . 'publicationType">Publication type: </label>';
@@ -300,10 +304,12 @@ class Scienation_Plugin {
             $abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
             $authors = get_post_meta($post->ID, PREFIX . 'authors', true);
               
-            $content_meta .= "<strong>Authors</strong> " . $this->print_authors_names($authors, false) . "<br />";
+            $content_meta .= "<strong>Authors</strong> " . $this->print_authors_names($authors, false, false) . "<br />";
             $content_meta .= "<h2>Abstract</h2>" . $abstract . "<br /><br /><br />";
         }
-        return $content_meta . $content;
+		
+		$pdf_download = '<br /><br /><a href="index.php?scienation=generate-pdf&post_id=' . $post->ID . '">Download PDF</a>';
+        return $content_meta . $content . $pdf_download;
     }
 	
 	// Comment form with peer review controls
@@ -415,27 +421,34 @@ class Scienation_Plugin {
 	// Author names
 	// ================================================
 	
-    private function print_authors_names($authors, $parentheses) {
+    private function print_authors_names($authors, $parentheses, $echo) {
         if ($authors) {
+			$result = "";
 			$list = explode(",", $authors);
 
 			if ($parentheses && !empty($list)) {
-				echo " (";
+				$result .= " (";
 			}
 			$context = stream_context_create($this->orcid_opts);
 			$delimiter = "";
 			foreach ($list as $authorORCID) {
 				$response = file_get_contents(ORCID_API_URL . $authorORCID, false, $context);
 				if ($response) {
-					echo $delimiter . '<a href="http://orcid.org/' . $authorORCID . '" target="_blank">' . $this->get_author_names($response) . '</a>';
+					$result .= $delimiter . '<a href="http://orcid.org/' . $authorORCID . '" target="_blank">' . $this->get_author_names($response) . '</a>';
 					$delimiter = ", ";
 				}
 			}
 			if ($parentheses && !empty($list)) {
-				echo ")";
+				$result .= ")";
 			}
+			if ($echo) {
+				echo $result;
+			}
+			return $result;
 		} else {
-            echo ORCID_MESSAGE;
+			if ($echo) {
+				echo ORCID_MESSAGE;
+			}
         }
     }
     
@@ -448,6 +461,47 @@ class Scienation_Plugin {
         return $given_name . " " . $family_name;
     }
     
+	// PDF generation
+	// ================================================
+	
+	public function parse_request($wp) {
+		// only process requests with "scienation=generate-pdf&"
+		if (array_key_exists('scienation', $wp->query_vars) 
+            && $wp->query_vars['scienation'] == 'generate-pdf') {
+			$post = reset(get_posts(array('include' => $wp->query_vars['post_id'])));
+			$this->generate_pdf($post);
+		}
+	}
+
+	public function query_vars($vars) {
+		array_push($vars, 'scienation', 'post_id');
+		return $vars;
+	}
+
+	private function generate_pdf($post) {
+		$content = $post->post_content;
+		$title = $post->post_title;
+		$permalink = get_permalink($post);
+		$authors = get_post_meta($post->ID, PREFIX . "authors", true);
+		
+		$html = '<html><h1 style="text-align: center;">' . $title . '</h1>'
+			. '<h3>' . $this->print_authors_names($authors, false, false) . '</h3>'
+			. '<h3>Abstract</h3>' . get_post_meta($post->ID, PREFIX . "abstract", true) . '<br /><hr /><br />'
+			. $content . '<br /><br /><br /><a href="' . $permalink . '">You can peer-review this publication here</a></html>';
+		
+		$dompdf = new Dompdf\Dompdf();
+		$dompdf->loadHtml($html);
+
+		// (Optional) Setup the paper size and orientation
+		$dompdf->setPaper('A4', 'portrait');
+
+		// Render the HTML as PDF
+		$dompdf->render();
+
+		// Output the generated PDF to Browser
+		$dompdf->stream($title);
+	}
+	
 	// Utilities
 	// ================================================
 	
@@ -457,7 +511,6 @@ class Scienation_Plugin {
         if (!is_admin()) {
             return false;
         }
-
 
         if($new_edit == "edit") {
             return in_array( $pagenow, array( 'post.php',  ) );

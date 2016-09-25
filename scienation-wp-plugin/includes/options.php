@@ -24,7 +24,6 @@ class ScienationSettingsPage {
 	public function register_settings() {
 		register_setting( 'scienation-settings-group', 'orcid' );
 		register_setting( 'scienation-settings-group', 'enabled_by_default' );
-		register_setting( 'scienation-settings-group', 'register_at_scienation' );
 	}
 
 	public function create_admin_page() {
@@ -43,13 +42,9 @@ class ScienationSettingsPage {
 			 
 			<tr valign="top">
 			<th scope="row">Enabled on new posts by default</th>
-			<td><input type="checkbox" name="enabled_by_default" value="true" <?php checked(get_option('enabled_by_default', true) == true ); ?>" /></td>
+			<td><input type="checkbox" name="enabled_by_default" value="true" <?php checked(get_option('enabled_by_default', true) == true ); ?> /></td>
 			</tr>
 			
-			<tr valign="top">
-			<th scope="row">Automatically register at <a href="http://scienation.com">scienation.com</a> (get your site listed)</th>
-			<td><input type="checkbox" name="register_at_scienation" value="true" <?php checked(get_option('register_at_scienation', true) == true ); ?>" /></td>
-			</tr>
 		</table>
 		
 		<?php submit_button(); ?>

@@ -78,17 +78,12 @@ class Scienation_Plugin {
 	}
 	
 	public function add_static_resources() {
-	  /*
-		Also, did you just load 1MB of assets so that an admin can set a
-		checkbox?
-		http://microjs.com/#tree
-	   */
-		wp_enqueue_style( 'jquery-ui-style', 'http://code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css');
+	
+		wp_enqueue_style( 'jquery-ui-style', plugins_url('css/jquery-ui.css', __FILE__));
 		wp_enqueue_style( 'jstree-style', plugins_url('css/jquery.tree.min.css', __FILE__));
 		
-		// prefix needed due to conflicts. Can't use built-in jquery-ui as it doesn't work with jstree
-		wp_enqueue_script( SCN_PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.11.3/jquery-ui.js');
-		wp_enqueue_script( 'jstree', plugins_url('scripts/jquery.tree.min.js', __FILE__));
+		wp_enqueue_script( 'jstree', plugins_url('scripts/jquery.tree.min.js', __FILE__), 
+			array("jquery-ui-core", "jquery-ui-widget", "jquery-ui-draggable", "jquery-effects-core", "jquery-effects-blind") );
 		wp_enqueue_script( SCN_PREFIX . 'branches', plugins_url('scripts/branches.js', __FILE__));
 	}
 	
@@ -544,7 +539,7 @@ class Scienation_Plugin {
 				branchesUrl: "<?php echo plugins_url('includes/branches.json', __FILE__); ?>"
 			};
 		</script>
-		<input type="text" style="width: 433px;" id="scn_branchSearchBox" placeholder="Select a branch of science..." />
+		<input type="text" style="width: 433px;" id="scn_branchSearchBox" placeholder="Select branches of science..." />
 		<div id="scn_branches" style="height: 310px; overflow: auto;"></div>		  
 		<?php
 	}  

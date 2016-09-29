@@ -68,7 +68,7 @@ class Scienation_Plugin {
         add_action( 'save_post_post', array( &$this, 'post_submit_handler' ), 10, 2 );
         add_action( 'the_content', array( &$this, 'print_post_meta' ) );
         add_action( 'comment_form', array ( &$this, 'extend_comment_form') );
-        add_action( 'the_comment', array ( &$this, 'extended_comment_view') ); //TODO
+        add_filter( 'comment_text', array ( &$this, 'extended_comment_view'), 10, 2 );
         add_action( 'wp_insert_comment', array ( &$this, 'comment_submit_handler') );
         add_action( 'parse_request', array  (&$this, 'parse_request') );
         add_filter( 'query_vars', array  (&$this, 'query_vars') );
@@ -163,15 +163,13 @@ class Scienation_Plugin {
         $list = get_comments('post_id=' . $post->ID);
         $separator = "";
         foreach ($list as $comment) {
-            echo $separator;
-            $separator = ",";
-            $context = stream_context_create($this->orcid_opts);
-            $orcid = get_comment_meta($comment->comment_ID, "reviewer_orcid", true);
-            if ($orcid) {
-                //TODO cache reviewer's name
-                $response = file_get_contents(ORCID_API_URL . $orcid, false, $context);
-                if ($response) {
-                    $names = $this->get_author_names($response);
+            $reviewer_details = get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true);
+            if ($reviewer_details) {
+				echo $separator;
+				$separator = ",";
+				$details = explode(":", $reviewer_details);
+				$names = $details[1];
+				$authorORCID = $details[0];
             ?>{
                 "@type": "Review",
                 "@id": "<?php echo get_permalink() . '#comment-' . $comment->comment_ID; ?>",
@@ -183,18 +181,17 @@ class Scienation_Plugin {
                 },
                 "reviewBody": <?php echo json_encode($comment->comment_content); ?>,
                 "parameters": {
-                    "meetsScientificStandards": <?php echo get_comment_meta($comment->comment_ID, "meets_scientific_standards", true); ?>,
-                    "clarityOfBackground": <?php echo get_comment_meta($comment->comment_ID, "clarity_of_background", true); ?>,
-                    "significance": <?php echo get_comment_meta($comment->comment_ID, "significance", true); ?>,
-                    "studyAndDesignMethods": <?php echo get_comment_meta($comment->comment_ID, "study_design_and_methods", true); ?>,
-                    "noveltyOfConclusions": <?php echo get_comment_meta($comment->comment_ID, "novelty_of_conclusions", true); ?>,
-                    "qualityOfPresentation": <?php echo get_comment_meta($comment->comment_ID, "quality_of_presentation", true); ?>,
-                    "qualityOfDataAnalysis": <?php echo get_comment_meta($comment->comment_ID, "quality_of_data_analysis", true); ?>
+                    "meetsScientificStandards": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "meets_scientific_standards", true); ?>,
+                    "clarityOfBackground": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "clarity_of_background", true); ?>,
+                    "significance": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "significance", true); ?>,
+                    "studyAndDesignMethods": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "study_design_and_methods", true); ?>,
+                    "noveltyOfConclusions": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "novelty_of_conclusions", true); ?>,
+                    "qualityOfPresentation": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "quality_of_presentation", true); ?>,
+                    "qualityOfDataAnalysis": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "quality_of_data_analysis", true); ?>
                 }
             }
             <?php
-                    } // end of response check
-                } // end of orcid check
+                } // end of metadata check
             } // end of loop
             ?>
     ],
@@ -347,11 +344,14 @@ class Scienation_Plugin {
         return $content_meta . $content . $pdf_download;
     }
     
-    public function extended_comment_view($comment) {
-        echo "<div><strong>Meets basic scientific standards?</strong>: " . (get_comment_meta($comment->ID, PREFIX . "meets_scientific_standards", true) ? 'Yes' : 'No') . "</div>";
-        foreach ($this->review_params as $id => $title) {
-            echo "<div><strong>" . $title . "</strong>: " . get_comment_meta($comment->ID, PREFIX . $id, true) . "</div>";
-        }
+    public function extended_comment_view($text, $comment) {
+		if (get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true)) {
+			$text .= '<div><span class="metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
+			foreach ($this->review_params as $id => $title) {
+				$text .= '<div><span class="metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, PREFIX . $id, true) . '</div>';
+			}
+		}
+		return $text;
     }
     
     // Comment form with peer review controls
@@ -413,17 +413,18 @@ class Scienation_Plugin {
             $meets_scientific_standards = $_POST['meets_scientific_standards'];
             $reviewer_orcid = $_POST['reviewer_orcid'];
 
-            add_comment_meta($comment_id, 'clarity_of_background', $clarity_of_background, true);
-            add_comment_meta($comment_id, 'significance', $significance, true);
-            add_comment_meta($comment_id, 'study_design_and_methods', $study_design_and_methods, true);
-            add_comment_meta($comment_id, 'novelty_of_conclusions', $novelty_of_conclusions, true);
-            add_comment_meta($comment_id, 'quality_of_presentation', $quality_of_presentation, true);
-            add_comment_meta($comment_id, 'quality_of_data_analysis', $quality_of_data_analysis, true);
-            add_comment_meta($comment_id, 'reviewer_orcid', $reviewer_orcid, true);
+            add_comment_meta($comment_id, PREFIX . 'clarity_of_background', $clarity_of_background, true);
+            add_comment_meta($comment_id, PREFIX . 'significance', $significance, true);
+            add_comment_meta($comment_id, PREFIX . 'study_design_and_methods', $study_design_and_methods, true);
+            add_comment_meta($comment_id, PREFIX . 'novelty_of_conclusions', $novelty_of_conclusions, true);
+            add_comment_meta($comment_id, PREFIX . 'quality_of_presentation', $quality_of_presentation, true);
+            add_comment_meta($comment_id, PREFIX . 'quality_of_data_analysis', $quality_of_data_analysis, true);
+            add_comment_meta($comment_id, PREFIX . 'reviewer_orcid', $reviewer_orcid, true);
+			add_comment_meta($comment_id, PREFIX . 'reviewer_details', $this->fetch_authors_names($reviewer_orcid), true);
             if ($meets_scientific_standards) {
-                add_comment_meta($comment_id, 'meets_scientific_standards', "true", true);
+                add_comment_meta($comment_id, PREFIX . 'meets_scientific_standards', "true", true);
             } else {
-                add_comment_meta($comment_id, 'meets_scientific_standards', "false", true);
+                add_comment_meta($comment_id, PREFIX . 'meets_scientific_standards', "false", true);
             }
         }
     }

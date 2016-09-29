@@ -19,4 +19,6 @@ The scienation plugin turns a wordpress installation into a tool for scientific 
 - providing peer review through the comments
 - downloading an article as PDF
 
+The plugin can be used by researchers for their personal websites/blogs, or by libraries that provide personal space for researchers to publish their materials.
+
 

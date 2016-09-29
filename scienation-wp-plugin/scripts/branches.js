@@ -2,7 +2,7 @@
 var branchListFullyVisible = true; 
 jQuery(document).ready(function() {
    jQuery.get(scienationOptions.branchesUrl, function(branches) {
-	   var container = jQuery("#branches");
+	   var container = jQuery("#scn_branches");
 	   var elements = [];
 	   appendBranch(elements, branches);
 	   container.append(elements.join(""));
@@ -42,10 +42,10 @@ jQuery(document).ready(function() {
 		   showElements(container);
 	   }
 	   
-	   jQuery("#branchSearchBox").keyup(function() {
+	   jQuery("#scn_branchSearchBox").keyup(function() {
 		   delay(function() {
-			   jQuery("#branches li").removeClass("found show collapseChildren");
-			   var text = jQuery("#branchSearchBox").val().toLowerCase();
+			   jQuery("#scn_branches li").removeClass("found show collapseChildren");
+			   var text = jQuery("#scn_branchSearchBox").val().toLowerCase();
 
 			   // only start filtering after the 2nd character
 			   if (text.length < 3) {
@@ -97,10 +97,10 @@ jQuery(document).ready(function() {
 
 function showElements(container) {
    // now expand all visible ones
-   jQuery("#branches .show").each(function() {
+   jQuery("#scn_branches .show").each(function() {
 	   jQuery(this).show();
    });
-   jQuery("#branches .found").each(function() {
+   jQuery("#scn_branches .found").each(function() {
 	   var currentLi = jQuery(this);
 	   currentLi.show();
 	   if (currentLi.parent().parent().prop("tagName").toLowerCase() != "div") {

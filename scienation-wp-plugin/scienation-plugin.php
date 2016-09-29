@@ -236,7 +236,7 @@ class Scienation_Plugin {
 		if (empty($authors)) {
 			$authors = get_option("orcid");
 		}
-		echo '<div><label class="metaboxLabel" for="' . SCN_PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. SCN_PREFIX . 'authors' . '" id="' 
+		echo '<div><label class="scn_metaboxLabel" for="' . SCN_PREFIX . 'authors">Authors (comma-separated ORCID): </label><input type="text" size="40" name="'. SCN_PREFIX . 'authors' . '" id="' 
 			. SCN_PREFIX . 'authors' . '" value="' . $authors . '"/>';
 		
 		$author_names = get_post_meta($post_ID, SCN_PREFIX . 'authorNames', true);
@@ -247,7 +247,7 @@ class Scienation_Plugin {
 		}
 		echo '</div>';
 		
-		echo '<div><label class="metaboxLabel" for="' . SCN_PREFIX . 'publicationType">Publication type: </label>';
+		echo '<div><label class="scn_metaboxLabel" for="' . SCN_PREFIX . 'publicationType">Publication type: </label>';
 		echo '<select name="' . SCN_PREFIX . 'publicationType" id="' . SCN_PREFIX . 'publicationType">';
 		$publication_type = get_post_meta($post_ID, SCN_PREFIX . 'publicationType', true);
 		foreach ($this->publication_types as $type) {
@@ -328,18 +328,18 @@ class Scienation_Plugin {
 			$authors = get_post_meta($post->ID, SCN_PREFIX . 'authorNames', true);
 			
 			$content_meta .= '<div><strong>Authors:</strong> ' . $this->get_linked_author_names($authors) . '</div>';
-			$content_meta .= '<div class="abstract"><h3>Abstract</h3>' . $abstract . '</div>';
+			$content_meta .= '<div class="scn_abstract"><h3>Abstract</h3>' . $abstract . '</div>';
 		}
 		
-		$pdf_download = '<div class="pdfDownload"><a href="' . SCN_DOWNLOAD_PDF_URL . '&post_id=' . $post->ID . '">Download PDF</a></div>';
+		$pdf_download = '<div class="scn_pdfDownload"><a href="' . SCN_DOWNLOAD_PDF_URL . '&post_id=' . $post->ID . '">Download PDF</a></div>';
 		return $content_meta . $content . $pdf_download;
 	}
 	
 	public function extended_comment_view($text, $comment) {
 		if (get_comment_meta($comment->comment_ID, SCN_PREFIX . "reviewer_details", true)) {
-			$text .= '<div><span class="metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, SCN_PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
+			$text .= '<div><span class="scn_metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, SCN_PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
 			foreach ($this->review_params as $id => $title) {
-				$text .= '<div><span class="metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, SCN_PREFIX . $id, true) . '</div>';
+				$text .= '<div><span class="scn_metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, SCN_PREFIX . $id, true) . '</div>';
 			}
 		}
 		return $text;
@@ -363,11 +363,11 @@ class Scienation_Plugin {
 	});
 	*/
 	?>
-		<input type="checkbox" name="peer_review_enabled" id="peer_review_enabled" checked onchange="jQuery('#peer_review_comment').toggle();" style="width: 25px;" />
+		<input type="checkbox" name="peer_review_enabled" id="peer_review_enabled" checked onchange="jQuery('#scn_peerReviewComment').toggle();" style="width: 25px;" />
 		<label for="peer_review_enabled">This comment is a peer review</label>
-		<div id="peerReviewComment">
+		<div id="scn_peerReviewComment">
 	  
-			<label for="reviewer_orcid" class="metaboxLabel">Your ORCID</label>
+			<label for="reviewer_orcid" class="scn_metaboxLabel">Your ORCID</label>
 			<input type="text" name="reviewer_orcid" id="reviewer_orcid" />
 	  
 			<div><?php echo SCN_ORCID_MESSAGE; ?></div>
@@ -381,7 +381,7 @@ class Scienation_Plugin {
 			foreach ($this->review_params as $id => $title) {
 				?>
 				<div>
-					<label for="<?php echo $id; ?>" class="metaboxLabel"><?php echo $title; ?></label>
+					<label for="<?php echo $id; ?>" class="scn_metaboxLabel"><?php echo $title; ?></label>
 					<input type="range" id="<?php echo $id; ?>" name="<?php echo $id; ?>" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
 					<output for="<?php echo $id; ?>" id="<?php echo $id; ?>_output">1</output>
 				</div>
@@ -544,8 +544,8 @@ class Scienation_Plugin {
 				branchesUrl: "<?php echo plugins_url('includes/branches.json', __FILE__); ?>"
 			};
 		</script>
-		<input type="text" style="width: 433px;" id="branchSearchBox" placeholder="Select a branch of science..." />
-		<div id="branches" style="height: 310px; overflow: auto;"></div>		  
+		<input type="text" style="width: 433px;" id="scn_branchSearchBox" placeholder="Select a branch of science..." />
+		<div id="scn_branches" style="height: 310px; overflow: auto;"></div>		  
 		<?php
 	}  
 	// Utilities

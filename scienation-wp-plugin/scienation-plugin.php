@@ -76,8 +76,8 @@ class Scienation_Plugin {
             add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
             add_action( 'admin_init', array( &$this, 'button_init') );
         }
-		wp_enqueue_style( PREFIX . 'style', plugins_url('css/main.css', __FILE__));
-		wp_enqueue_script( PREFIX . 'scripts', plugins_url('scripts/scripts.js', __FILE__));
+        wp_enqueue_style( PREFIX . 'style', plugins_url('css/main.css', __FILE__));
+        wp_enqueue_script( PREFIX . 'scripts', plugins_url('scripts/scripts.js', __FILE__));
     }
     
     public function add_static_resources() {
@@ -89,8 +89,8 @@ class Scienation_Plugin {
         wp_enqueue_style( 'jquery-ui-style', 'http://code.jquery.com/ui/1.11.3/themes/smoothness/jquery-ui.css');
         wp_enqueue_style( 'jstree-style', plugins_url('css/jquery.tree.min.css', __FILE__));
         
-		// prefix needed due to conflicts. Can't use built-in jquery-ui as it doesn't work with jstree
-		wp_enqueue_script( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.11.3/jquery-ui.js');
+        // prefix needed due to conflicts. Can't use built-in jquery-ui as it doesn't work with jstree
+        wp_enqueue_script( PREFIX . 'jquery-ui', 'http://code.jquery.com/ui/1.11.3/jquery-ui.js');
         wp_enqueue_script( 'jstree', plugins_url('scripts/jquery.tree.min.js', __FILE__));
         wp_enqueue_script( PREFIX . 'branches', plugins_url('scripts/branches.js', __FILE__));
     }
@@ -99,117 +99,112 @@ class Scienation_Plugin {
     // ================================================
     
     public function wp_head () {
-    // NOTE: If my syntax highlighter gets confused, your code is too complex.
-    // PHP/WP supports templates.
-    // Also, PHP can generate JSON
         if ($this->is_edit_page()) {
             print_branches_html(get_post_meta($post_ID, PREFIX . 'scienceBranch'));
         }
-		rewind_posts();
-		echo '<script type="application/ld+json">';
+        
+        rewind_posts();
+        echo '<script type="application/ld+json">';
+        $output = array();
         while (have_posts()) {
-			the_post();
+            the_post();
             $post = get_post();
-			if (get_post_meta($post->ID, PREFIX . 'enabled', true)) {
-            ?>
-{
-    "@context": "http://schema.org",
-    "@type": "ScholarlyArticle",
-    "@id": "<?php echo get_permalink(); ?>",
-    "author": [
-            <?php
-            $list = explode(",", get_post_meta($post->ID, PREFIX . 'authorNames', true));
-            $separator = "";
-            foreach ($list as $author) {
-                echo $separator;
-                $separator = ",";
-                $author_details = explode(':', $author);
-                $names = $author_details[1];
-            ?>{
-            "@id": "http://orcid.org/<?php echo $author_details[0]; ?>",
-            "@type": "Person",
-            "name": <?php echo json_encode($names); ?>
-        }
-                    <?php
+            if (get_post_meta($post->ID, PREFIX . 'enabled', true)) {
+                $post_output = array();
+                $post_output['@context'] = 'http://schema.org';
+                $post_output['@type'] = 'ScholarlyArticle';
+                $post_output['@id'] = get_permalink();
+            
+                // Authors
+                $authors_output = array();
+                $list = explode(",", get_post_meta($post->ID, PREFIX . 'authorNames', true));
+                foreach ($list as $author) {
+                    $author_output = array();
+                    $author_details = explode(':', $author);
+                    $names = $author_details[1];
+                    $author_output['@id'] = 'http://orcid.org/' . $author_details[0];
+                    $author_output['@type'] = 'Person';
+                    $author_output['name'] = $names;
+                    
+                    $authors_output[] = $author_output;
                 }
-                    ?>
-    ],
-    "citation": [
-            <?php
-            $list = get_post_meta($post->ID, PREFIX . 'reference');
-            $separator = "";
-            foreach ($list as $reference) {
-                echo $separator;
-                $separator = ",";
-            ?>{
-                "@type": "ScholarlyArticle",
-                "@id": "<?php echo $reference; ?>",
-                "url": "<?php echo $reference; ?>"
-            }
-            <?php
-            }
-            ?>
-    ],
-    "articleSection": [
-            <?php
-            $list = get_post_meta($post->ID, PREFIX . 'scienceBranch');
-            $separator = "";
-            foreach ($list as $branch) {
-                echo $separator . json_encode($branch);
-                $separator = ",";
-            }
-            ?>
-    ],
-    "review": [
-        <?php
-        $list = get_comments('post_id=' . $post->ID);
-        $separator = "";
-        foreach ($list as $comment) {
-            $reviewer_details = get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true);
-            if ($reviewer_details) {
-				echo $separator;
-				$separator = ",";
-				$details = explode(":", $reviewer_details);
-				$names = $details[1];
-				$authorORCID = $details[0];
-            ?>{
-                "@type": "Review",
-                "@id": "<?php echo get_permalink() . '#comment-' . $comment->comment_ID; ?>",
-                "url": "<?php echo get_permalink() . '#comment-' . $comment->comment_ID; ?>",
-                "author": {
-                    "@id": "http://orcid.org/<?php echo $authorORCID; ?>",
-                    "@type": "Person",
-                    "name": <?php echo json_encode($names); ?>
-                },
-                "reviewBody": <?php echo json_encode($comment->comment_content); ?>,
-                "parameters": {
-                    "meetsScientificStandards": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "meets_scientific_standards", true); ?>,
-                    "clarityOfBackground": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "clarity_of_background", true); ?>,
-                    "significance": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "significance", true); ?>,
-                    "studyAndDesignMethods": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "study_design_and_methods", true); ?>,
-                    "noveltyOfConclusions": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "novelty_of_conclusions", true); ?>,
-                    "qualityOfPresentation": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "quality_of_presentation", true); ?>,
-                    "qualityOfDataAnalysis": <?php echo get_comment_meta($comment->comment_ID, PREFIX . "quality_of_data_analysis", true); ?>
+                $post_output['author'] = $authors_output;
+                
+                // Citations/references
+                $references_output = array();
+                $list = get_post_meta($post->ID, PREFIX . 'reference');
+                foreach ($list as $reference) {
+                    $reference_output = array();
+                    $reference_output['@type'] = "ScholarlyArticle";
+                    $reference_output['@id'] = $reference;
+                    $reference_output['url'] = $reference;
+                    
+                    $references_output[] = $reference_output;
                 }
-            }
-            <?php
-                } // end of metadata check
-            } // end of loop
-            ?>
-    ],
-    "name": <?php echo json_encode($post->post_title); ?>,
-    "description": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'abstract', true)); ?>,
-    "text": <?php echo json_encode($post->post_content); ?>,
-    "genre": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'publicationType', true)); ?>,
-    "datePublished": "<?php echo date('c', strtotime($post->post_date)); ?>",
-    "url": "<?php echo get_permalink(); ?>",
-    "alternateName": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'hash', true)); ?>
-}
-            <?php
-			} //end of if-enabled
+                $post_output['citation'] = $references_output;
+        
+                // Branches
+                $branches_output = array();
+                $list = get_post_meta($post->ID, PREFIX . 'scienceBranch');
+                foreach ($list as $branch) {
+                    $branches_output[] = $branch;
+                }
+                $post_output['articleSection'] = $branches_output;
+            
+                $reviews_output = array();
+                $list = get_comments('post_id=' . $post->ID);
+                foreach ($list as $comment) {
+                    $reviewer_details = get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true);
+                    if ($reviewer_details) {
+                        $review_output = array();
+                        $details = explode(":", $reviewer_details);
+                        $names = $details[1];
+                        $authorORCID = $details[0];
+                        
+                        $review_output['@type'] = "Review";
+                        $review_output['@id'] = get_permalink() . '#comment-' . $comment->comment_ID;;
+                        $review_output['@url'] = get_permalink() . '#comment-' . $comment->comment_ID;;
+                        $review_output['author'] = array(
+                            '@id' => 'http://orcid.org/' . $authorORCID,
+                            '@type' => "Person",
+                            'name' => $names
+                        );
+                        $review_output['reviewBody'] = $comment->comment_content;
+                        $review_params_output = array();
+                        foreach ($this->review_params as $review_param => $value) {
+                            $review_params_output[$this->camelCase($value)] = get_comment_meta($comment->comment_ID, PREFIX . $review_param, true);
+                        }
+                        $review_params_output['meetsScientificStandards'] = get_comment_meta($comment->comment_ID, PREFIX . "meets_scientific_standards", true) ? 'true' : 'false';
+                        $review_output['parameters'] = $review_params_output;
+                        
+                        $reviews_output[] = $review_output;
+                    }
+                }
+                $post_output['review'] = $reviews_output;
+                
+                $post_output['name'] = $post->post_title;
+                $post_output['description'] = get_post_meta($post->ID, PREFIX . 'abstract', true);
+                $post_output['genre'] = get_post_meta($post->ID, PREFIX . 'publicationType', true);
+                $post_output['datePublished'] = date('c', strtotime($post->post_date));
+                $post_output['url'] = get_permalink();
+                $post_output['alternateName'] = get_post_meta($post->ID, PREFIX . 'hash', true);
+    
+                $output[] = $post_output;
+            } //end of if-enabled check
         } //end of loop
-		echo '</script>';
-    } //end of function
+        
+        if (is_single()) {
+            $output = $output[0];
+        }
+        $json = json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (version_compare(PHP_VERSION, "5.4", "<")) {
+            // older versions don't have an option to unescape slashes, so we do it manually
+            $json = str_replace("\\/", "/", $json);
+        }
+        echo $json;
+    
+        echo '</script>';
+    }
 
     // Metaboxes on edit page
     // ================================================
@@ -253,12 +248,12 @@ class Scienation_Plugin {
         
         $author_names = get_post_meta($post_ID, PREFIX . 'authorNames', true);
         if ($author_names) {
-			echo ' (' . $this->get_linked_author_names($author_names) . ')';
+            echo ' (' . $this->get_linked_author_names($author_names) . ')';
         } else {
             echo ORCID_MESSAGE;
         }
         echo '</div>';
-		
+        
         echo '<div><label class="metaboxLabel" for="' . PREFIX . 'publicationType">Publication type: </label>';
         echo '<select name="' . PREFIX . 'publicationType" id="' . PREFIX . 'publicationType">';
         $publication_type = get_post_meta($post_ID, PREFIX . 'publicationType', true);
@@ -338,7 +333,7 @@ class Scienation_Plugin {
         if( (is_single() || is_page()) && $enabled) {
             $abstract = get_post_meta($post->ID, PREFIX . 'abstract', true);
             $authors = get_post_meta($post->ID, PREFIX . 'authorNames', true);
-			
+            
             $content_meta .= '<div><strong>Authors:</strong> ' . $this->get_linked_author_names($authors) . '</div>';
             $content_meta .= '<div class="abstract"><h3>Abstract</h3>' . $abstract . '</div>';
         }
@@ -348,13 +343,13 @@ class Scienation_Plugin {
     }
     
     public function extended_comment_view($text, $comment) {
-		if (get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true)) {
-			$text .= '<div><span class="metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
-			foreach ($this->review_params as $id => $title) {
-				$text .= '<div><span class="metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, PREFIX . $id, true) . '</div>';
-			}
-		}
-		return $text;
+        if (get_comment_meta($comment->comment_ID, PREFIX . "reviewer_details", true)) {
+            $text .= '<div><span class="metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
+            foreach ($this->review_params as $id => $title) {
+                $text .= '<div><span class="metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, PREFIX . $id, true) . '</div>';
+            }
+        }
+        return $text;
     }
     
     // Comment form with peer review controls
@@ -394,7 +389,7 @@ class Scienation_Plugin {
                 ?>
                 <div>
                     <label for="<?php echo $id; ?>" class="metaboxLabel"><?php echo $title; ?></label>
-                    <input type="range" id="<?php echo $id; ?>" name="clarity_of_background" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
+                    <input type="range" id="<?php echo $id; ?>" name="<?php echo $id; ?>" min="1" value="1" max="5" step="1" oninput="update_output(this, value);" />
                     <output for="<?php echo $id; ?>" id="<?php echo $id; ?>_output">1</output>
                 </div>
                 <?php
@@ -407,23 +402,16 @@ class Scienation_Plugin {
     public function comment_submit_handler($comment_id) {
         //TODO orcid oauth login
         if ($_POST['peer_review_enabled']) {
-            $clarity_of_background = intval($_POST['clarity_of_background']);
-            $significance = intval($_POST['significance']);
-            $study_design_and_methods = intval($_POST['study_design_and_methods']);
-            $novelty_of_conclusions = intval($_POST['novelty_of_conclusions']);
-            $quality_of_presentation = intval($_POST['quality_of_presentation']);
-            $quality_of_data_analysis = intval($_POST['quality_of_data_analysis']);
+            foreach ($this->review_params as $key => $value) {
+                $param = intval($_POST[$key]);
+                add_comment_meta($comment_id, PREFIX . $key, $param, true);            
+            }
+            
             $meets_scientific_standards = $_POST['meets_scientific_standards'];
             $reviewer_orcid = $_POST['reviewer_orcid'];
 
-            add_comment_meta($comment_id, PREFIX . 'clarity_of_background', $clarity_of_background, true);
-            add_comment_meta($comment_id, PREFIX . 'significance', $significance, true);
-            add_comment_meta($comment_id, PREFIX . 'study_design_and_methods', $study_design_and_methods, true);
-            add_comment_meta($comment_id, PREFIX . 'novelty_of_conclusions', $novelty_of_conclusions, true);
-            add_comment_meta($comment_id, PREFIX . 'quality_of_presentation', $quality_of_presentation, true);
-            add_comment_meta($comment_id, PREFIX . 'quality_of_data_analysis', $quality_of_data_analysis, true);
             add_comment_meta($comment_id, PREFIX . 'reviewer_orcid', $reviewer_orcid, true);
-			add_comment_meta($comment_id, PREFIX . 'reviewer_details', $this->fetch_authors_names($reviewer_orcid), true);
+            add_comment_meta($comment_id, PREFIX . 'reviewer_details', $this->fetch_authors_names($reviewer_orcid), true);
             if ($meets_scientific_standards) {
                 add_comment_meta($comment_id, PREFIX . 'meets_scientific_standards', "true", true);
             } else {
@@ -470,17 +458,17 @@ class Scienation_Plugin {
         return $result;
     }
     
-	private function get_linked_author_names($author_names) {
-		$result = '';
-		$list = explode(',', $author_names);
-		$delimiter = '';
-		foreach ($list as $author) {
-			$author_details = explode(':', $author);
-			$result .= $delimiter . '<a href="http://orcid.org/' . $author_details[0] . '" target="_blank">' . $author_details[1] . '</a>';
-			$delimiter = ', ';
-		}
-		return $result;
-	}
+    private function get_linked_author_names($author_names) {
+        $result = '';
+        $list = explode(',', $author_names);
+        $delimiter = '';
+        foreach ($list as $author) {
+            $author_details = explode(':', $author);
+            $result .= $delimiter . '<a href="http://orcid.org/' . $author_details[0] . '" target="_blank">' . $author_details[1] . '</a>';
+            $delimiter = ', ';
+        }
+        return $result;
+    }
     private function get_author_names($response) {
         $json = json_decode($response, true);
         $personal_details = $json["orcid-profile"]["orcid-bio"]["personal-details"];
@@ -566,6 +554,18 @@ class Scienation_Plugin {
         }  else { //check for either new or edit
             return in_array( $pagenow, array( 'post.php', 'post-new.php' ) );
         }
+    }
+    
+    public function camelCase($str) {
+        // non-alpha and non-numeric characters become spaces
+        $str = preg_replace('/[^a-z0-9]+/i', ' ', $str);
+        $str = trim($str);
+        // uppercase the first character of each word
+        $str = ucwords($str);
+        $str = str_replace(" ", "", $str);
+        $str = lcfirst($str);
+
+        return $str;
     }
 }
 ?>

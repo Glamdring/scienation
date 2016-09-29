@@ -105,11 +105,12 @@ class Scienation_Plugin {
         if ($this->is_edit_page()) {
             print_branches_html(get_post_meta($post_ID, PREFIX . 'scienceBranch'));
         }
-        
-        if (is_single()) {
-            $post = get_post(get_the_ID());
+		echo '<script type="application/ld+json">';
+        while (have_posts()) {
+			the_post();
+            $post = get_post();
+			if (get_post_meta($post->ID, PREFIX . 'enabled', true)) {
             ?>
-<script type="application/ld+json">
 {
     "@context": "http://schema.org",
     "@type": "ScholarlyArticle",
@@ -203,10 +204,11 @@ class Scienation_Plugin {
     "url": "<?php echo get_permalink(); ?>",
     "alternateName": <?php echo json_encode(get_post_meta($post->ID, PREFIX . 'hash', true)); ?>
 }
-</script>
             <?php
-        }
-    }
+			} //end of if-enabled
+        } //end of loop
+		echo '</script>';
+    } //end of function
 
     // Metaboxes on edit page
     // ================================================

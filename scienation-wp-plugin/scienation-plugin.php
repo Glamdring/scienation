@@ -105,6 +105,7 @@ class Scienation_Plugin {
         if ($this->is_edit_page()) {
             print_branches_html(get_post_meta($post_ID, PREFIX . 'scienceBranch'));
         }
+		rewind_posts();
 		echo '<script type="application/ld+json">';
         while (have_posts()) {
 			the_post();

@@ -278,16 +278,39 @@ class Scienation_Plugin {
 			$this->update_meta($post_id, 'hash', hash('sha256', strip_tags($post->post_content)));
 			$this->update_meta($post_id, 'authorNames', $this->fetch_authors_names($_POST[SCN_PREFIX . 'authors']));
 			
-			// cleanup the multi-value meta first
+			$terms = wp_get_post_tags($post_id);
+			$tags = array();
+			
+			// the collection of tags returned is of type WP_term, whereas wp_set_post_tags require a string array (go figure..)
+			// we cleanup the branch tags, and we re-add them later (thus allowing deletion)
+			$existing_branches = get_post_meta($post_id, SCN_PREFIX . "scienceBranch");
+			
+			foreach ($terms as $term) {
+				$remove = false;
+				foreach ($existing_branches as $branch) {
+					if ($term->name == $branch) {
+						$remove = true;
+					}
+				}
+				if (!$remove) {
+					$tags[] = $term->name;
+				}
+			}
+			
+			// cleanup the multi-value meta first			
 			delete_post_meta($post_id, SCN_PREFIX . "scienceBranch");
+			
 			// then add all submitted values
 			if ($_POST['scienceBranch']) {
 				foreach ($_POST['scienceBranch'] as $branch) {
 					add_post_meta($post_id, SCN_PREFIX . "scienceBranch", $branch);
+					$tags[] = str_replace(',', ' ', $branch);
 				}
 			}
-			
 			$this->store_references($post_id);
+			
+			// set the tags
+			wp_set_post_tags($post_id, $tags, false);
 		}
 	}
 	
@@ -318,7 +341,7 @@ class Scienation_Plugin {
 		$content = $post->post_content;
 		$content_meta = "";
 		$enabled = get_post_meta($post->ID, SCN_PREFIX . 'enabled', true);
-		if( (is_single() || is_page()) && $enabled) {
+		if($enabled) {
 			$abstract = get_post_meta($post->ID, SCN_PREFIX . 'abstract', true);
 			$authors = get_post_meta($post->ID, SCN_PREFIX . 'authorNames', true);
 			

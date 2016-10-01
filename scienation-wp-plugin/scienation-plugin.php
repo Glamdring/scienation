@@ -361,7 +361,7 @@ class Scienation_Plugin {
 		if (get_comment_meta($comment->comment_ID, SCN_PREFIX . "reviewer_details", true)) {
 			$text .= '<div><span class="scn_metaboxLabel">Meets basic scientific standards?</span>: ' . (get_comment_meta($comment->comment_ID, SCN_PREFIX . 'meets_scientific_standards', true) ? 'Yes' : 'No') . '</div>';
 			foreach ($this->review_params as $id => $title) {
-				$text .= '<div><span class="scn_metaboxLabel">' . $title . '</span>: ' . get_comment_meta($comment->comment_ID, SCN_PREFIX . $id, true) . '</div>';
+				$text .= '<div><span class="scn_metaboxLabel">' . $title . '</span>: ' . esc_html(get_comment_meta($comment->comment_ID, SCN_PREFIX . $id, true)) . '</div>';
 			}
 		}
 		return $text;

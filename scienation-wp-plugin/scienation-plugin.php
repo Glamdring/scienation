@@ -269,14 +269,14 @@ class Scienation_Plugin {
 	// ================================================
 	public function post_submit_handler($post_id, $post) {
 		if ( !current_user_can('edit_post', $post_id) ) { return $post_id; }
-		$enabled = $_POST[SCN_PREFIX . 'enabled'];
+		$enabled = sanitize_text_field($_POST[SCN_PREFIX . 'enabled']);
 		$this->update_meta($post_id, 'enabled');
 		if ($enabled) {
-			$this->update_meta($post_id, 'authors');
+			$this->update_meta($post_id, 'authors', false);
 			$this->update_meta($post_id, 'abstract');
 			$this->update_meta($post_id, 'publicationType');
-			$this->update_meta($post_id, 'hash', hash('sha256', strip_tags($post->post_content)));
-			$this->update_meta($post_id, 'authorNames', $this->fetch_authors_names($_POST[SCN_PREFIX . 'authors']));
+			$this->update_meta($post_id, 'hash', false, hash('sha256', strip_tags($post->post_content)));
+			$this->update_meta($post_id, 'authorNames', false, $this->fetch_authors_names($_POST[SCN_PREFIX . 'authors']));
 			
 			$terms = wp_get_post_tags($post_id);
 			$tags = array();
@@ -303,7 +303,7 @@ class Scienation_Plugin {
 			// then add all submitted values
 			if ($_POST['scienceBranch']) {
 				foreach ($_POST['scienceBranch'] as $branch) {
-					add_post_meta($post_id, SCN_PREFIX . "scienceBranch", $branch);
+					add_post_meta($post_id, SCN_PREFIX . "scienceBranch", sanitize_text_field($branch));
 					$tags[] = str_replace(',', ' ', $branch);
 				}
 			}
@@ -325,9 +325,13 @@ class Scienation_Plugin {
 		}
 	}
 	
-	private function update_meta($post_id, $key, $value = null) {
+	private function update_meta($post_id, $key, $sanitize = true, $value = null) {
 		if ($value == null) {
-			$value = $_POST[SCN_PREFIX . $key];
+			if ($sanitize) {
+				$value = sanitize_text_field($_POST[SCN_PREFIX . $key]);
+			} else {
+				$value = $_POST[SCN_PREFIX . $key];
+			}
 		}
 		update_post_meta($post_id, SCN_PREFIX . $key, $value);
 	}
@@ -372,14 +376,6 @@ class Scienation_Plugin {
 			// only show peer review controls to scientific-enabled articles
 			return;
 		}
-
-	/*
-	NOTE: 
-	$(document).on('change', '#peer_review_enabled', function() {
-	  ...
-	  return false;
-	});
-	*/
 	?>
 		<input type="checkbox" name="peer_review_enabled" id="peer_review_enabled" checked onchange="jQuery('#scn_peerReviewComment').toggle();" style="width: 25px;" />
 		<label for="peer_review_enabled">This comment is a peer review</label>
@@ -419,7 +415,7 @@ class Scienation_Plugin {
 			}
 			
 			$meets_scientific_standards = $_POST['meets_scientific_standards'];
-			$reviewer_orcid = $_POST['reviewer_orcid'];
+			$reviewer_orcid = sanitize_text_field($_POST['reviewer_orcid']);
 
 			add_comment_meta($comment_id, SCN_PREFIX . 'reviewer_orcid', $reviewer_orcid, true);
 			add_comment_meta($comment_id, SCN_PREFIX . 'reviewer_details', $this->fetch_authors_names($reviewer_orcid), true);
@@ -454,7 +450,7 @@ class Scienation_Plugin {
 	private function fetch_authors_names($authors) {
 		$result = "";
 		if ($authors) {
-			$list = explode(",", $authors);
+			$list = explode(",", sanitize_text_field($authors));
 
 			$context = stream_context_create($this->orcid_opts);
 			$delimiter = "";

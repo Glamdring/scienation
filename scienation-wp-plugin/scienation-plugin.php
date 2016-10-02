@@ -276,7 +276,7 @@ class Scienation_Plugin {
 			$this->update_meta($post_id, 'abstract');
 			$this->update_meta($post_id, 'publicationType');
 			$this->update_meta($post_id, 'hash', false, hash('sha256', strip_tags($post->post_content)));
-			$this->update_meta($post_id, 'authorNames', false, $this->fetch_authors_names($_POST[SCN_PREFIX . 'authors']));
+			$this->update_meta($post_id, 'authorNames', false, $this->fetch_authors_names(sanitize_text_field($_POST[SCN_PREFIX . 'authors'])));
 			
 			$terms = wp_get_post_tags($post_id);
 			$tags = array();

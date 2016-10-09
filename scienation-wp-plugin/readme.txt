@@ -1,9 +1,9 @@
 === Scienation ===
 Contributors: glamdring
-Tags: science, open source, science publishing
+Tags: science, science publishing
 Requires at least: 3.3
 Tested up to: 4.6
-Stable tag: trunk
+Stable tag: 0.1
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 

@@ -24,6 +24,7 @@ class ScienationSettingsPage {
 	public function register_settings() {
 		register_setting( 'scienation-settings-group', 'orcid' );
 		register_setting( 'scienation-settings-group', 'enabled_by_default' );
+		register_setting( 'scienation-settings-group', 'registered_at_scienation' );
 	}
 
 	public function create_admin_page() {
@@ -45,6 +46,10 @@ class ScienationSettingsPage {
 			<td><input type="checkbox" name="enabled_by_default" value="true" <?php checked(get_option('enabled_by_default', true) == true ); ?> /></td>
 			</tr>
 			
+			<tr valign="top">
+			<th scope="row">Register website at <a href="http://scienation.com">scienation.com</a></th>
+			<td><input type="checkbox" name="registered_at_scienation" value="true" <?php checked(get_option('registered_at_scienation', false) == true ); ?> /> (makes your research indexed and searchable)</td>
+			</tr>
 		</table>
 		
 		<?php submit_button(); ?>

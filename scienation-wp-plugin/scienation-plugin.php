@@ -69,6 +69,8 @@ class Scienation_Plugin {
 		add_action( 'wp_insert_comment', array ( &$this, 'comment_submit_handler') );
 		add_action( 'parse_request', array	(&$this, 'parse_request') );
 		add_filter( 'query_vars', array	 (&$this, 'query_vars') );
+		add_filter( 'pre_update_option_registered_at_scienation', array	(&$this, 'handle_scienation_registration'), 10, 2 );
+		
 		if ($this->is_edit_page()) {
 			add_action( 'admin_enqueue_scripts', array( &$this, 'add_static_resources' ) );
 			add_action( 'admin_init', array( &$this, 'button_init') );
@@ -561,7 +563,25 @@ class Scienation_Plugin {
 		<input type="text" style="width: 433px;" id="scn_branchSearchBox" placeholder="Select branches of science..." />
 		<div id="scn_branches" style="height: 310px; overflow: auto;"></div>		  
 		<?php
-	}  
+	}
+
+	public function handle_scienation_registration($new_value, $old_value) {
+		if (!$old_value && $new_value) {
+			$url = 'http://scienation.com/add.php';
+			$data = array('url' => get_site_url());
+			$options = array(
+					'http' => array(
+					'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+					'method'  => 'POST',
+					'content' => http_build_query($data),
+				)
+			);
+
+			$context  = stream_context_create($options);
+			$result = file_get_contents($url, false, $context);
+		}
+		return $new_value;
+	}
 	// Utilities
 	// ================================================
 	

@@ -173,6 +173,7 @@ class Scienation_Plugin {
 				$post_output['review'] = $reviews_output;
 				
 				$post_output['name'] = $post->post_title;
+				$post_output['text'] = $post->post_content;
 				$post_output['description'] = get_post_meta($post->ID, SCN_PREFIX . 'abstract', true);
 				$post_output['genre'] = get_post_meta($post->ID, SCN_PREFIX . 'publicationType', true);
 				$post_output['datePublished'] = date('c', strtotime($post->post_date));

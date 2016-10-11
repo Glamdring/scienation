@@ -3,7 +3,7 @@ Contributors: glamdring
 Tags: science, science publishing
 Requires at least: 3.3
 Tested up to: 4.6
-Stable tag: 0.2
+Stable tag: 0.2.1
 License: GPLv3.0
 License URI: https://www.gnu.org/licenses/gpl-3.0.en.html
 

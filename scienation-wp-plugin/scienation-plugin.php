@@ -2,8 +2,8 @@
 /*
 Plugin Name: Scienation
 Plugin URI:	 http://scienation.com/plugins/wordpress
-Description: The scienation plugin turns a wordpress installation into a tool for scientific publishing. That way every scientist can have his own "journal". It adds the necessary semantic annotations on the content and enables additional features like peer review.
-Version:	 0.1
+Description: The scienation plugin turns a wordpress installation into a tool for scientific publishing so that every scientist can have his own "journal"
+Version:	 0.2.1
 Author:		 Bozhidar Bozhanov
 Author URI:	 http://techblog.bozho.net
 License:	 GPL3
